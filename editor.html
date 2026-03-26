@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Glyph Dither Embed Builder</title>
+  <title>Glyph Dither Embed Builder v2</title>
   <style>
     :root {
       --bg: #0b0b10;
@@ -23,10 +23,10 @@
       font-family: Inter, Arial, sans-serif;
     }
     .app {
-      max-width: 1280px;
+      max-width: 1360px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 380px 1fr;
+      grid-template-columns: 420px 1fr;
       gap: 20px;
     }
     .card {
@@ -49,10 +49,21 @@
     .controls {
       display: grid;
       gap: 14px;
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      padding-right: 4px;
     }
     .field {
       display: grid;
       gap: 8px;
+    }
+    .groupTitle {
+      margin-top: 4px;
+      color: #e5e7eb;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
     label {
       font-size: 13px;
@@ -130,7 +141,7 @@
       background: transparent;
     }
     textarea {
-      min-height: 180px;
+      min-height: 200px;
       resize: vertical;
       font-family: "Courier New", monospace;
       font-size: 12px;
@@ -154,14 +165,15 @@
     @media (max-width: 980px) {
       .app { grid-template-columns: 1fr; }
       .frameWrap { min-height: 420px; height: 58vh; }
+      .controls { max-height: none; }
     }
   </style>
 </head>
 <body>
   <div class="app">
     <div class="card">
-      <h1>Embed Builder</h1>
-      <div class="sub">Крути параметры viewer, смотри live preview и копируй готовый iframe-блок для Tilda.</div>
+      <h1>Embed Builder v2</h1>
+      <div class="sub">Настраивай viewer, смотри preview и копируй готовый iframe для Tilda.</div>
 
       <div class="controls">
         <div class="field">
@@ -173,6 +185,8 @@
           <label for="objPath">Путь к OBJ</label>
           <input id="objPath" type="text" value="./model.obj" />
         </div>
+
+        <div class="groupTitle">Glyph / Repel</div>
 
         <div class="field">
           <label>Cell</label>
@@ -225,24 +239,16 @@
         <div class="field">
           <label>Trail glow</label>
           <div class="row">
-            <input id="trail" type="range" min="0" max="200" value="15" />
-            <div id="trailVal" class="num">0.15</div>
+            <input id="trail" type="range" min="0" max="200" value="10" />
+            <div id="trailVal" class="num">0.10</div>
           </div>
         </div>
 
         <div class="field">
           <label>Decay</label>
           <div class="row">
-            <input id="decay" type="range" min="75" max="99" value="93" />
-            <div id="decayVal" class="num">0.93</div>
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Rotate speed</label>
-          <div class="row">
-            <input id="speed" type="range" min="0" max="50" value="4" />
-            <div id="speedVal" class="num">0.004</div>
+            <input id="decay" type="range" min="75" max="99" value="92" />
+            <div id="decayVal" class="num">0.92</div>
           </div>
         </div>
 
@@ -250,6 +256,88 @@
           <label for="charset">Charset</label>
           <input id="charset" type="text" value=" .,:;i1tfLCG08@" />
         </div>
+
+        <div class="groupTitle">Rotation / Pan</div>
+
+        <label class="check"><input id="mouseRotate" type="checkbox" checked /> Mouse rotate</label>
+        <label class="check"><input id="autoRotate" type="checkbox" /> Auto rotate</label>
+        <label class="check"><input id="dragPan" type="checkbox" checked /> Drag pan</label>
+
+        <div class="field">
+          <label>Rotate speed</label>
+          <div class="row">
+            <input id="rotateSpeed" type="range" min="-50" max="50" value="4" />
+            <div id="rotateSpeedVal" class="num">0.004</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotate influence X</label>
+          <div class="row">
+            <input id="rotateInfluenceX" type="range" min="-400" max="400" value="110" />
+            <div id="rotateInfluenceXVal" class="num">1.10</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotate influence Y</label>
+          <div class="row">
+            <input id="rotateInfluenceY" type="range" min="-400" max="400" value="65" />
+            <div id="rotateInfluenceYVal" class="num">0.65</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Pan strength</label>
+          <div class="row">
+            <input id="panStrength" type="range" min="10" max="500" value="100" />
+            <div id="panStrengthVal" class="num">1.00</div>
+          </div>
+        </div>
+
+        <div class="groupTitle">Model placement</div>
+
+        <div class="field">
+          <label>Model X</label>
+          <div class="row">
+            <input id="modelX" type="range" min="-500" max="500" value="0" />
+            <div id="modelXVal" class="num">0.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Model Y</label>
+          <div class="row">
+            <input id="modelY" type="range" min="-500" max="500" value="0" />
+            <div id="modelYVal" class="num">0.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Model Z</label>
+          <div class="row">
+            <input id="modelZ" type="range" min="-500" max="500" value="0" />
+            <div id="modelZVal" class="num">0.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Base rotation X</label>
+          <div class="row">
+            <input id="baseRotX" type="range" min="-628" max="628" value="-25" />
+            <div id="baseRotXVal" class="num">-0.25</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Base rotation Y</label>
+          <div class="row">
+            <input id="baseRotY" type="range" min="-628" max="628" value="45" />
+            <div id="baseRotYVal" class="num">0.45</div>
+          </div>
+        </div>
+
+        <div class="groupTitle">Colors / UI</div>
 
         <div class="field">
           <label for="bg">Background</label>
@@ -261,7 +349,6 @@
           <input id="color" type="color" value="#ffffff" />
         </div>
 
-        <label class="check"><input id="autoRotate" type="checkbox" /> Auto rotate</label>
         <label class="check"><input id="mouseTrail" type="checkbox" checked /> Mouse trail</label>
         <label class="check"><input id="transparent" type="checkbox" /> Transparent background</label>
         <label class="check"><input id="hud" type="checkbox" /> Show HUD</label>
@@ -273,7 +360,7 @@
         </div>
 
         <div id="status" class="status"></div>
-        <div class="hint">Хостишь рядом с viewer.html на GitHub Pages. Открываешь editor.html, настраиваешь и копируешь iframe в Tilda.</div>
+        <div class="hint">Положи editor.html рядом с viewer.html на GitHub Pages. Открываешь editor, крутишь всё здесь и копируешь iframe в Tilda.</div>
       </div>
     </div>
 
@@ -302,14 +389,24 @@
       swirl: document.getElementById('swirl'),
       trail: document.getElementById('trail'),
       decay: document.getElementById('decay'),
-      speed: document.getElementById('speed'),
       charset: document.getElementById('charset'),
       bg: document.getElementById('bg'),
       color: document.getElementById('color'),
-      autoRotate: document.getElementById('autoRotate'),
       mouseTrail: document.getElementById('mouseTrail'),
       transparent: document.getElementById('transparent'),
       hud: document.getElementById('hud'),
+      autoRotate: document.getElementById('autoRotate'),
+      rotateSpeed: document.getElementById('rotateSpeed'),
+      mouseRotate: document.getElementById('mouseRotate'),
+      rotateInfluenceX: document.getElementById('rotateInfluenceX'),
+      rotateInfluenceY: document.getElementById('rotateInfluenceY'),
+      dragPan: document.getElementById('dragPan'),
+      panStrength: document.getElementById('panStrength'),
+      modelX: document.getElementById('modelX'),
+      modelY: document.getElementById('modelY'),
+      modelZ: document.getElementById('modelZ'),
+      baseRotX: document.getElementById('baseRotX'),
+      baseRotY: document.getElementById('baseRotY'),
       frame: document.getElementById('previewFrame'),
       embedCode: document.getElementById('embedCode'),
       status: document.getElementById('status')
@@ -324,7 +421,15 @@
       ['swirl', 'swirlVal', (v) => (Number(v) / 100).toFixed(2)],
       ['trail', 'trailVal', (v) => (Number(v) / 100).toFixed(2)],
       ['decay', 'decayVal', (v) => (Number(v) / 100).toFixed(2)],
-      ['speed', 'speedVal', (v) => (Number(v) / 1000).toFixed(3)]
+      ['rotateSpeed', 'rotateSpeedVal', (v) => (Number(v) / 1000).toFixed(3)],
+      ['rotateInfluenceX', 'rotateInfluenceXVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['rotateInfluenceY', 'rotateInfluenceYVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['panStrength', 'panStrengthVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['modelX', 'modelXVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['modelY', 'modelYVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['modelZ', 'modelZVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['baseRotX', 'baseRotXVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['baseRotY', 'baseRotYVal', (v) => (Number(v) / 100).toFixed(2)]
     ];
 
     function syncValues() {
@@ -345,14 +450,24 @@
       url.searchParams.set('swirl', (Number(ids.swirl.value) / 100).toFixed(2));
       url.searchParams.set('trail', (Number(ids.trail.value) / 100).toFixed(2));
       url.searchParams.set('decay', (Number(ids.decay.value) / 100).toFixed(2));
-      url.searchParams.set('speed', (Number(ids.speed.value) / 1000).toFixed(3));
       url.searchParams.set('charset', ids.charset.value);
       url.searchParams.set('bg', ids.bg.value);
       url.searchParams.set('color', ids.color.value);
-      url.searchParams.set('autoRotate', String(ids.autoRotate.checked));
       url.searchParams.set('mouseTrail', String(ids.mouseTrail.checked));
       url.searchParams.set('transparent', String(ids.transparent.checked));
       url.searchParams.set('hud', String(ids.hud.checked));
+      url.searchParams.set('autoRotate', String(ids.autoRotate.checked));
+      url.searchParams.set('rotateSpeed', (Number(ids.rotateSpeed.value) / 1000).toFixed(3));
+      url.searchParams.set('mouseRotate', String(ids.mouseRotate.checked));
+      url.searchParams.set('rotateInfluenceX', (Number(ids.rotateInfluenceX.value) / 100).toFixed(2));
+      url.searchParams.set('rotateInfluenceY', (Number(ids.rotateInfluenceY.value) / 100).toFixed(2));
+      url.searchParams.set('dragPan', String(ids.dragPan.checked));
+      url.searchParams.set('panStrength', (Number(ids.panStrength.value) / 100).toFixed(2));
+      url.searchParams.set('modelX', (Number(ids.modelX.value) / 100).toFixed(2));
+      url.searchParams.set('modelY', (Number(ids.modelY.value) / 100).toFixed(2));
+      url.searchParams.set('modelZ', (Number(ids.modelZ.value) / 100).toFixed(2));
+      url.searchParams.set('baseRotX', (Number(ids.baseRotX.value) / 100).toFixed(2));
+      url.searchParams.set('baseRotY', (Number(ids.baseRotY.value) / 100).toFixed(2));
       return url.toString();
     }
 
@@ -406,7 +521,7 @@
     ['viewerUrl', 'objPath', 'charset', 'bg', 'color'].forEach((key) => {
       ids[key].addEventListener('input', refresh);
     });
-    ['autoRotate', 'mouseTrail', 'transparent', 'hud'].forEach((key) => {
+    ['mouseTrail', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
       ids[key].addEventListener('change', refresh);
     });
 
