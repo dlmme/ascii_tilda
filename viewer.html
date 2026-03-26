@@ -3,498 +3,530 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OBJ Glyph Dither Viewer v2</title>
+  <title>Glyph Dither Embed Builder v2</title>
   <style>
-    html, body {
+    :root {
+      --bg: #0b0b10;
+      --panel: #12121a;
+      --panel2: #1a1a24;
+      --border: #2a2a36;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --ok: #86efac;
+    }
+    * { box-sizing: border-box; }
+    body {
       margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #05070a;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
       font-family: Inter, Arial, sans-serif;
     }
-    #mount {
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-      background: transparent;
-      touch-action: none;
-      cursor: grab;
+    .app {
+      max-width: 1360px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 20px;
     }
-    #mount.dragging { cursor: grabbing; }
-    #webgl,
-    #display {
-      position: absolute;
-      inset: 0;
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.05;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .controls {
+      display: grid;
+      gap: 14px;
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+    .groupTitle {
+      margin-top: 4px;
+      color: #e5e7eb;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    input[type="text"], input[type="color"], input[type="range"], textarea, button {
+      width: 100%;
+    }
+    input[type="text"], textarea {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+    }
+    input[type="range"] { accent-color: #fff; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 82px;
+      gap: 10px;
+      align-items: center;
+    }
+    .num {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    .check input { width: auto; }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      color: #111;
+    }
+    button.secondary {
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .preview {
+      display: grid;
+      gap: 12px;
+    }
+    .frameWrap {
+      height: 70vh;
+      min-height: 560px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #05070a;
+    }
+    iframe {
       width: 100%;
       height: 100%;
+      border: 0;
       display: block;
+      background: transparent;
     }
-    #overlay {
-      position: fixed;
-      top: 14px;
-      left: 14px;
-      z-index: 4;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-      max-width: min(92vw, 860px);
-      pointer-events: none;
-    }
-    .pill {
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(10, 12, 18, 0.72);
-      color: #d1d5db;
-      border: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(10px);
+    textarea {
+      min-height: 200px;
+      resize: vertical;
+      font-family: "Courier New", monospace;
       font-size: 12px;
-      line-height: 1;
-    }
-    .hidden { display: none !important; }
-    #errorBox {
-      position: fixed;
-      inset: auto 16px 16px 16px;
-      z-index: 5;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(26, 10, 12, 0.92);
-      color: #fecaca;
-      border: 1px solid rgba(248, 113, 113, 0.25);
-      font-size: 13px;
       line-height: 1.45;
-      max-width: min(900px, calc(100vw - 32px));
-      backdrop-filter: blur(10px);
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .status {
+      color: var(--ok);
+      font-size: 13px;
+      min-height: 18px;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .frameWrap { min-height: 420px; height: 58vh; }
+      .controls { max-height: none; }
     }
   </style>
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-      }
-    }
-  </script>
 </head>
 <body>
-  <div id="mount">
-    <canvas id="webgl"></canvas>
-    <canvas id="display"></canvas>
+  <div class="app">
+    <div class="card">
+      <h1>Embed Builder v2</h1>
+      <div class="sub">Настраивай viewer, смотри preview и копируй готовый iframe для Tilda.</div>
+
+      <div class="controls">
+        <div class="field">
+          <label for="viewerUrl">URL viewer.html</label>
+          <input id="viewerUrl" type="text" value="https://dlmme.github.io/ascii_tilda/viewer.html" />
+        </div>
+
+        <div class="field">
+          <label for="objPath">Путь к OBJ</label>
+          <input id="objPath" type="text" value="./model.obj" />
+        </div>
+
+        <div class="groupTitle">Glyph / Repel</div>
+
+        <div class="field">
+          <label>Cell</label>
+          <div class="row">
+            <input id="cell" type="range" min="4" max="40" value="12" />
+            <div id="cellVal" class="num">12</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Contrast</label>
+          <div class="row">
+            <input id="contrast" type="range" min="20" max="300" value="180" />
+            <div id="contrastVal" class="num">1.80</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Force</label>
+          <div class="row">
+            <input id="force" type="range" min="0" max="500" value="130" />
+            <div id="forceVal" class="num">1.30</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Radius</label>
+          <div class="row">
+            <input id="radius" type="range" min="20" max="500" value="140" />
+            <div id="radiusVal" class="num">140</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Return</label>
+          <div class="row">
+            <input id="returnStrength" type="range" min="1" max="50" value="12" />
+            <div id="returnVal" class="num">0.12</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Swirl</label>
+          <div class="row">
+            <input id="swirl" type="range" min="0" max="300" value="35" />
+            <div id="swirlVal" class="num">0.35</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Trail glow</label>
+          <div class="row">
+            <input id="trail" type="range" min="0" max="200" value="10" />
+            <div id="trailVal" class="num">0.10</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Decay</label>
+          <div class="row">
+            <input id="decay" type="range" min="75" max="99" value="92" />
+            <div id="decayVal" class="num">0.92</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="charset">Charset</label>
+          <input id="charset" type="text" value=" .,:;i1tfLCG08@" />
+        </div>
+
+        <div class="groupTitle">Rotation / Pan</div>
+
+        <label class="check"><input id="mouseRotate" type="checkbox" checked /> Mouse rotate</label>
+        <label class="check"><input id="autoRotate" type="checkbox" /> Auto rotate</label>
+        <label class="check"><input id="dragPan" type="checkbox" /> Разрешить drag pan в embed</label>
+
+        <div class="field">
+          <label>Rotate speed</label>
+          <div class="row">
+            <input id="rotateSpeed" type="range" min="-50" max="50" value="4" />
+            <div id="rotateSpeedVal" class="num">0.004</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotate influence X</label>
+          <div class="row">
+            <input id="rotateInfluenceX" type="range" min="-400" max="400" value="110" />
+            <div id="rotateInfluenceXVal" class="num">1.10</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotate influence Y</label>
+          <div class="row">
+            <input id="rotateInfluenceY" type="range" min="-400" max="400" value="65" />
+            <div id="rotateInfluenceYVal" class="num">0.65</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Pan strength</label>
+          <div class="row">
+            <input id="panStrength" type="range" min="10" max="500" value="100" />
+            <div id="panStrengthVal" class="num">1.00</div>
+          </div>
+        </div>
+
+        <div class="groupTitle">Model placement</div>
+
+        <div class="field">
+          <label>Model X</label>
+          <div class="row">
+            <input id="modelX" type="range" min="-500" max="500" value="0" />
+            <div id="modelXVal" class="num">0.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Model Y</label>
+          <div class="row">
+            <input id="modelY" type="range" min="-500" max="500" value="0" />
+            <div id="modelYVal" class="num">0.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Model Z</label>
+          <div class="row">
+            <input id="modelZ" type="range" min="-500" max="500" value="0" />
+            <div id="modelZVal" class="num">0.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Base rotation X</label>
+          <div class="row">
+            <input id="baseRotX" type="range" min="-628" max="628" value="-25" />
+            <div id="baseRotXVal" class="num">-0.25</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Base rotation Y</label>
+          <div class="row">
+            <input id="baseRotY" type="range" min="-628" max="628" value="45" />
+            <div id="baseRotYVal" class="num">0.45</div>
+          </div>
+        </div>
+
+        <div class="groupTitle">Colors / UI</div>
+
+        <div class="field">
+          <label for="bg">Background</label>
+          <input id="bg" type="color" value="#05070a" />
+        </div>
+
+        <div class="field">
+          <label for="color">Glyph color</label>
+          <input id="color" type="color" value="#ffffff" />
+        </div>
+
+        <label class="check"><input id="mouseTrail" type="checkbox" checked /> Mouse trail</label>
+        <label class="check"><input id="transparent" type="checkbox" /> Transparent background</label>
+        <label class="check"><input id="hud" type="checkbox" /> Show HUD</label>
+
+        <div class="toolbar">
+          <button id="refreshBtn">Обновить preview</button>
+          <button id="copyUrlBtn" class="secondary">Скопировать URL</button>
+          <button id="copyEmbedBtn" class="secondary">Скопировать Embed</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div class="hint">Смещение модели в редакторе настраивается ползунками Model X / Y / Z. Drag pan в итоговом embed по умолчанию выключен, чтобы пользователь в Tilda не мог сдвигать сцену мышью.</div>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div class="card frameWrap">
+        <iframe id="previewFrame" title="Viewer preview"></iframe>
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <button id="copyCodeBtn" class="secondary">Скопировать код ещё раз</button>
+        </div>
+        <textarea id="embedCode" spellcheck="false"></textarea>
+      </div>
+    </div>
   </div>
 
-  <div id="overlay">
-    <div id="statusPill" class="pill">Загрузка…</div>
-    <div id="metaPill" class="pill">OBJ Glyph Dither</div>
-  </div>
-
-  <div id="errorBox" class="hidden"></div>
-
-  <script type="module">
-    import * as THREE from 'three';
-    import { OBJLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js';
-
-    const mount = document.getElementById('mount');
-    const webglCanvas = document.getElementById('webgl');
-    const displayCanvas = document.getElementById('display');
-    const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true });
-    const statusPill = document.getElementById('statusPill');
-    const metaPill = document.getElementById('metaPill');
-    const errorBox = document.getElementById('errorBox');
-
-    function clampNumber(value, min, max, fallback) {
-      const n = Number(value);
-      if (!Number.isFinite(n)) return fallback;
-      return Math.min(max, Math.max(min, n));
-    }
-
-    function parseBool(value, fallback) {
-      if (value == null) return fallback;
-      return value === '1' || value === 'true' || value === 'yes';
-    }
-
-    function showError(message) {
-      errorBox.textContent = message;
-      errorBox.classList.remove('hidden');
-      statusPill.textContent = 'Ошибка';
-    }
-
-    function setStatus(message) {
-      statusPill.textContent = message;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const config = {
-      obj: params.get('obj') || './model.obj',
-      cell: clampNumber(params.get('cell'), 4, 40, 12),
-      contrast: clampNumber(params.get('contrast'), 0.2, 3, 1.8),
-      trail: clampNumber(params.get('trail'), 0, 2, 0.1),
-      decay: clampNumber(params.get('decay'), 0.75, 0.995, 0.92),
-      charset: params.get('charset') || ' .,:;i1tfLCG08@',
-      mouseTrail: parseBool(params.get('mouseTrail'), true),
-      transparent: parseBool(params.get('transparent'), false),
-      bg: params.get('bg') || '#05070a',
-      color: params.get('color') || '#ffffff',
-      hud: parseBool(params.get('hud'), true),
-      force: clampNumber(params.get('force'), 0, 5, 1.3),
-      radius: clampNumber(params.get('radius'), 20, 500, 140),
-      returnStrength: clampNumber(params.get('return'), 0.01, 0.5, 0.12),
-      swirl: clampNumber(params.get('swirl'), 0, 3, 0.35),
-      autoRotate: parseBool(params.get('autoRotate'), false),
-      rotateSpeed: clampNumber(params.get('rotateSpeed'), -0.05, 0.05, 0.004),
-      mouseRotate: parseBool(params.get('mouseRotate'), true),
-      rotateInfluenceX: clampNumber(params.get('rotateInfluenceX'), -4, 4, 1.1),
-      rotateInfluenceY: clampNumber(params.get('rotateInfluenceY'), -4, 4, 0.65),
-      dragPan: parseBool(params.get('dragPan'), true),
-      panStrength: clampNumber(params.get('panStrength'), 0.1, 5, 1.0),
-      modelX: clampNumber(params.get('modelX'), -5, 5, 0),
-      modelY: clampNumber(params.get('modelY'), -5, 5, 0),
-      modelZ: clampNumber(params.get('modelZ'), -5, 5, 0),
-      baseRotX: clampNumber(params.get('baseRotX'), -6.28, 6.28, -0.25),
-      baseRotY: clampNumber(params.get('baseRotY'), -6.28, 6.28, 0.45)
+  <script>
+    const ids = {
+      viewerUrl: document.getElementById('viewerUrl'),
+      objPath: document.getElementById('objPath'),
+      cell: document.getElementById('cell'),
+      contrast: document.getElementById('contrast'),
+      force: document.getElementById('force'),
+      radius: document.getElementById('radius'),
+      returnStrength: document.getElementById('returnStrength'),
+      swirl: document.getElementById('swirl'),
+      trail: document.getElementById('trail'),
+      decay: document.getElementById('decay'),
+      charset: document.getElementById('charset'),
+      bg: document.getElementById('bg'),
+      color: document.getElementById('color'),
+      mouseTrail: document.getElementById('mouseTrail'),
+      transparent: document.getElementById('transparent'),
+      hud: document.getElementById('hud'),
+      autoRotate: document.getElementById('autoRotate'),
+      rotateSpeed: document.getElementById('rotateSpeed'),
+      mouseRotate: document.getElementById('mouseRotate'),
+      rotateInfluenceX: document.getElementById('rotateInfluenceX'),
+      rotateInfluenceY: document.getElementById('rotateInfluenceY'),
+      dragPan: document.getElementById('dragPan'),
+      panStrength: document.getElementById('panStrength'),
+      modelX: document.getElementById('modelX'),
+      modelY: document.getElementById('modelY'),
+      modelZ: document.getElementById('modelZ'),
+      baseRotX: document.getElementById('baseRotX'),
+      baseRotY: document.getElementById('baseRotY'),
+      frame: document.getElementById('previewFrame'),
+      embedCode: document.getElementById('embedCode'),
+      status: document.getElementById('status')
     };
 
-    if (!config.hud) {
-      document.getElementById('overlay').classList.add('hidden');
+    const pairs = [
+      ['cell', 'cellVal', (v) => v],
+      ['contrast', 'contrastVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['force', 'forceVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['radius', 'radiusVal', (v) => v],
+      ['returnStrength', 'returnVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['swirl', 'swirlVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['trail', 'trailVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['decay', 'decayVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['rotateSpeed', 'rotateSpeedVal', (v) => (Number(v) / 1000).toFixed(3)],
+      ['rotateInfluenceX', 'rotateInfluenceXVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['rotateInfluenceY', 'rotateInfluenceYVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['panStrength', 'panStrengthVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['modelX', 'modelXVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['modelY', 'modelYVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['modelZ', 'modelZVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['baseRotX', 'baseRotXVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['baseRotY', 'baseRotYVal', (v) => (Number(v) / 100).toFixed(2)]
+    ];
+
+    function syncValues() {
+      for (const [inputId, outputId, format] of pairs) {
+        document.getElementById(outputId).textContent = format(ids[inputId].value);
+      }
     }
 
-    metaPill.textContent = `${config.cell}px glyph · force ${config.force.toFixed(2)} · pan ${config.dragPan ? 'on' : 'off'} · rotate ${config.mouseRotate || config.autoRotate ? 'on' : 'off'}`;
+    function buildViewerUrl() {
+      const base = ids.viewerUrl.value.trim();
+      const url = new URL(base, window.location.href);
+      url.searchParams.set('obj', ids.objPath.value.trim() || './model.obj');
+      url.searchParams.set('cell', ids.cell.value);
+      url.searchParams.set('contrast', (Number(ids.contrast.value) / 100).toFixed(2));
+      url.searchParams.set('force', (Number(ids.force.value) / 100).toFixed(2));
+      url.searchParams.set('radius', ids.radius.value);
+      url.searchParams.set('return', (Number(ids.returnStrength.value) / 100).toFixed(2));
+      url.searchParams.set('swirl', (Number(ids.swirl.value) / 100).toFixed(2));
+      url.searchParams.set('trail', (Number(ids.trail.value) / 100).toFixed(2));
+      url.searchParams.set('decay', (Number(ids.decay.value) / 100).toFixed(2));
+      url.searchParams.set('charset', ids.charset.value);
+      url.searchParams.set('bg', ids.bg.value);
+      url.searchParams.set('color', ids.color.value);
+      url.searchParams.set('mouseTrail', String(ids.mouseTrail.checked));
+      url.searchParams.set('transparent', String(ids.transparent.checked));
+      url.searchParams.set('hud', String(ids.hud.checked));
+      url.searchParams.set('autoRotate', String(ids.autoRotate.checked));
+      url.searchParams.set('rotateSpeed', (Number(ids.rotateSpeed.value) / 1000).toFixed(3));
+      url.searchParams.set('mouseRotate', String(ids.mouseRotate.checked));
+      url.searchParams.set('rotateInfluenceX', (Number(ids.rotateInfluenceX.value) / 100).toFixed(2));
+      url.searchParams.set('rotateInfluenceY', (Number(ids.rotateInfluenceY.value) / 100).toFixed(2));
+      url.searchParams.set('dragPan', String(ids.dragPan.checked));
+      url.searchParams.set('panStrength', (Number(ids.panStrength.value) / 100).toFixed(2));
+      url.searchParams.set('modelX', (Number(ids.modelX.value) / 100).toFixed(2));
+      url.searchParams.set('modelY', (Number(ids.modelY.value) / 100).toFixed(2));
+      url.searchParams.set('modelZ', (Number(ids.modelZ.value) / 100).toFixed(2));
+      url.searchParams.set('baseRotX', (Number(ids.baseRotX.value) / 100).toFixed(2));
+      url.searchParams.set('baseRotY', (Number(ids.baseRotY.value) / 100).toFixed(2));
+      return url.toString();
+    }
 
-    function resolveUrl(path) {
+    function buildEmbedCode(viewerUrl) {
+      return `<div style="width:100%; height:100vh; min-height:620px; overflow:hidden;">
+  <iframe
+    src="${viewerUrl}"
+    width="100%"
+    height="100%"
+    style="border:0; display:block;"
+    loading="lazy"
+    allowfullscreen
+  ></iframe>
+</div>`;
+    }
+
+    function refresh() {
       try {
-        return new URL(path, window.location.href).toString();
-      } catch {
-        return path;
+        const viewerUrl = buildViewerUrl();
+        ids.frame.src = viewerUrl;
+        ids.embedCode.value = buildEmbedCode(viewerUrl);
+        ids.status.textContent = 'Preview обновлён';
+      } catch (error) {
+        ids.status.textContent = 'Ошибка: ' + (error && error.message ? error.message : String(error));
       }
     }
 
-    function collapseObjectToMesh(root) {
-      const group = new THREE.Group();
-      root.traverse((child) => {
-        if (child.isMesh && child.geometry) {
-          const geometry = child.geometry.clone();
-          geometry.computeVertexNormals();
-          const material = new THREE.MeshNormalMaterial();
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.copy(child.position);
-          mesh.rotation.copy(child.rotation);
-          mesh.scale.copy(child.scale);
-          group.add(mesh);
-        }
-      });
-      return group;
+    async function copyText(text, message) {
+      await navigator.clipboard.writeText(text);
+      ids.status.textContent = message;
     }
 
-    function normalizeObject(root) {
-      const box = new THREE.Box3().setFromObject(root);
-      const size = new THREE.Vector3();
-      const center = new THREE.Vector3();
-      box.getSize(size);
-      box.getCenter(center);
-      root.position.sub(center);
-      const maxDim = Math.max(size.x || 1, size.y || 1, size.z || 1);
-      const scale = 2.4 / maxDim;
-      root.scale.setScalar(scale);
-      root.rotation.x = config.baseRotX;
-      root.rotation.y = config.baseRotY;
-      root.position.x += config.modelX;
-      root.position.y += config.modelY;
-      root.position.z += config.modelZ;
-      return root;
-    }
-
-    async function loadObjText(url) {
-      const response = await fetch(resolveUrl(url), { mode: 'cors' });
-      if (!response.ok) {
-        throw new Error(`Не удалось загрузить OBJ: ${response.status} ${response.statusText}`);
-      }
-      return await response.text();
-    }
-
-    function colorWithAlpha(hex, alpha) {
-      if (!hex.startsWith('#')) return hex;
-      const clean = hex.slice(1);
-      const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean.padEnd(6, 'f').slice(0, 6);
-      const r = parseInt(full.slice(0, 2), 16);
-      const g = parseInt(full.slice(2, 4), 16);
-      const b = parseInt(full.slice(4, 6), 16);
-      return `rgba(${r},${g},${b},${alpha})`;
-    }
-
-    async function main() {
-      if (!displayCtx) throw new Error('2D canvas не создался.');
-
-      setStatus('Загружаю OBJ…');
-      const objText = await loadObjText(config.obj);
-
-      setStatus('Собираю сцену…');
-      const loader = new OBJLoader();
-      const parsed = loader.parse(objText);
-      const meshGroup = collapseObjectToMesh(parsed);
-      if (!meshGroup.children.length) throw new Error('OBJ загружен, но в нём не найдено mesh-геометрии.');
-      const model = normalizeObject(meshGroup);
-
-      const renderer = new THREE.WebGLRenderer({ canvas: webglCanvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-      camera.position.set(0, 0, 6);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-      const light = new THREE.DirectionalLight(0xffffff, 1.25);
-      light.position.set(3, 4, 5);
-      scene.add(light);
-      scene.add(model);
-
-      const trailCanvas = document.createElement('canvas');
-      const trailCtx = trailCanvas.getContext('2d', { willReadFrequently: true });
-      const bufferCanvas = document.createElement('canvas');
-      const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
-      if (!trailCtx || !bufferCtx) throw new Error('Вспомогательные canvas не создались.');
-
-      const mouse = new THREE.Vector2(0.5, 0.5);
-      let width = 1;
-      let height = 1;
-      let raf = 0;
-      let grid = [];
-      let cols = 0;
-      let rows = 0;
-
-      const state = {
-        dragging: false,
-        pointerMoved: false,
-        lastPointerX: 0,
-        lastPointerY: 0,
-        panX: config.modelX,
-        panY: config.modelY,
-        targetPanX: config.modelX,
-        targetPanY: config.modelY,
-        currentRotX: config.baseRotX,
-        currentRotY: config.baseRotY,
-        targetRotX: config.baseRotX,
-        targetRotY: config.baseRotY
-      };
-
-      function resize() {
-        const rect = mount.getBoundingClientRect();
-        width = Math.max(320, Math.floor(rect.width));
-        height = Math.max(320, Math.floor(rect.height));
-        renderer.setSize(width, height, false);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        webglCanvas.width = width;
-        webglCanvas.height = height;
-        displayCanvas.width = width;
-        displayCanvas.height = height;
-        trailCanvas.width = width;
-        trailCanvas.height = height;
-        bufferCanvas.width = width;
-        bufferCanvas.height = height;
-        rebuildGrid();
-      }
-
-      function rebuildGrid() {
-        const cell = Math.max(4, config.cell);
-        cols = Math.ceil(width / cell);
-        rows = Math.ceil(height / cell);
-        grid = new Array(cols * rows);
-        for (let gy = 0; gy < rows; gy++) {
-          for (let gx = 0; gx < cols; gx++) {
-            const baseX = gx * cell;
-            const baseY = gy * cell;
-            grid[gy * cols + gx] = { baseX, baseY, x: baseX, y: baseY, vx: 0, vy: 0, glow: 0 };
-          }
-        }
-      }
-
-      function paintTrail() {
-        trailCtx.globalCompositeOperation = 'source-over';
-        trailCtx.fillStyle = `rgba(0,0,0,${1 - config.decay})`;
-        trailCtx.fillRect(0, 0, width, height);
-        if (!config.mouseTrail || config.trail <= 0) return;
-        const x = mouse.x * width;
-        const y = mouse.y * height;
-        const grad = trailCtx.createRadialGradient(x, y, 0, x, y, Math.max(40, width * 0.12 * config.trail + 20));
-        grad.addColorStop(0, `rgba(255,255,255,${0.28 + config.trail * 0.45})`);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        trailCtx.fillStyle = grad;
-        trailCtx.beginPath();
-        trailCtx.arc(x, y, Math.max(30, width * 0.08 * config.trail + 18), 0, Math.PI * 2);
-        trailCtx.fill();
-      }
-
-      function updateGridPhysics() {
-        const mouseX = mouse.x * width;
-        const mouseY = mouse.y * height;
-        const radius = config.radius;
-        const radiusSq = radius * radius;
-
-        for (let i = 0; i < grid.length; i++) {
-          const node = grid[i];
-          const dx = node.x - mouseX;
-          const dy = node.y - mouseY;
-          const distSq = dx * dx + dy * dy;
-
-          if (distSq < radiusSq) {
-            const dist = Math.sqrt(distSq) || 0.0001;
-            const falloff = 1 - dist / radius;
-            const nx = dx / dist;
-            const ny = dy / dist;
-            const repel = falloff * config.force * 2.4;
-            node.vx += nx * repel;
-            node.vy += ny * repel;
-            const tx = -ny;
-            const ty = nx;
-            node.vx += tx * falloff * config.swirl * 0.8;
-            node.vy += ty * falloff * config.swirl * 0.8;
-            node.glow = Math.min(1, node.glow + falloff * 0.18);
-          }
-
-          node.vx += (node.baseX - node.x) * config.returnStrength;
-          node.vy += (node.baseY - node.y) * config.returnStrength;
-          node.vx *= 0.86;
-          node.vy *= 0.86;
-          node.x += node.vx;
-          node.y += node.vy;
-          node.glow *= 0.92;
-        }
-      }
-
-      function drawAscii() {
-        bufferCtx.clearRect(0, 0, width, height);
-        bufferCtx.drawImage(webglCanvas, 0, 0, width, height);
-        const baseData = bufferCtx.getImageData(0, 0, width, height).data;
-        const trailData = trailCtx.getImageData(0, 0, width, height).data;
-
-        displayCtx.clearRect(0, 0, width, height);
-        if (!config.transparent) {
-          displayCtx.fillStyle = config.bg;
-          displayCtx.fillRect(0, 0, width, height);
-        }
-
-        const cell = Math.max(4, config.cell);
-        const chars = config.charset || ' .:-=+*#%@';
-        displayCtx.font = `${Math.floor(cell * 1.02)}px monospace`;
-        displayCtx.textBaseline = 'top';
-
-        for (let gy = 0; gy < rows; gy++) {
-          for (let gx = 0; gx < cols; gx++) {
-            const node = grid[gy * cols + gx];
-            const px = Math.min(width - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
-            const py = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
-            const idx = (py * width + px) * 4;
-            const r = baseData[idx];
-            const g = baseData[idx + 1];
-            const b = baseData[idx + 2];
-            const a = baseData[idx + 3] / 255;
-            const tr = trailData[idx] / 255;
-            let brightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
-            brightness = Math.min(1, Math.max(0, (brightness - 0.5) * config.contrast + 0.5 + tr * config.trail + node.glow * 0.35));
-            const charIndex = Math.min(chars.length - 1, Math.floor(brightness * (chars.length - 1)));
-            const char = chars[charIndex];
-            if (char !== ' ') {
-              const alpha = Math.min(1, 0.22 + brightness * 0.95 + node.glow * 0.45);
-              displayCtx.fillStyle = colorWithAlpha(config.color, alpha);
-              displayCtx.fillText(char, node.x, node.y);
-            }
-          }
-        }
-      }
-
-      function updateInteractionTargets() {
-        if (!config.mouseRotate || state.dragging) {
-          state.targetRotX = config.baseRotX;
-          state.targetRotY = config.baseRotY;
-          return;
-        }
-        state.targetRotY = config.baseRotY + (mouse.x - 0.5) * config.rotateInfluenceX;
-        state.targetRotX = config.baseRotX + (mouse.y - 0.5) * config.rotateInfluenceY;
-      }
-
-      function onPointerMove(event) {
-        const rect = displayCanvas.getBoundingClientRect();
-        const x = (event.clientX - rect.left) / rect.width;
-        const y = (event.clientY - rect.top) / rect.height;
-        mouse.set(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)));
-
-        if (state.dragging && config.dragPan) {
-          const dx = event.clientX - state.lastPointerX;
-          const dy = event.clientY - state.lastPointerY;
-          state.pointerMoved = true;
-          state.targetPanX += (dx / Math.max(320, width)) * 4 * config.panStrength;
-          state.targetPanY -= (dy / Math.max(320, height)) * 4 * config.panStrength;
-          state.lastPointerX = event.clientX;
-          state.lastPointerY = event.clientY;
-        }
-      }
-
-      function onPointerDown(event) {
-        if (!config.dragPan) return;
-        state.dragging = true;
-        state.pointerMoved = false;
-        state.lastPointerX = event.clientX;
-        state.lastPointerY = event.clientY;
-        mount.classList.add('dragging');
-        displayCanvas.setPointerCapture?.(event.pointerId);
-      }
-
-      function onPointerUp(event) {
-        state.dragging = false;
-        mount.classList.remove('dragging');
-        displayCanvas.releasePointerCapture?.(event.pointerId);
-      }
-
-      function onLeave() {
-        mouse.set(0.5, 0.5);
-        state.dragging = false;
-        mount.classList.remove('dragging');
-      }
-
-      function tick() {
-        updateInteractionTargets();
-
-        if (config.autoRotate && !state.dragging) {
-          state.targetRotY += config.rotateSpeed;
-        }
-
-        state.currentRotX += (state.targetRotX - state.currentRotX) * 0.08;
-        state.currentRotY += (state.targetRotY - state.currentRotY) * 0.08;
-        state.panX += (state.targetPanX - state.panX) * 0.14;
-        state.panY += (state.targetPanY - state.panY) * 0.14;
-
-        model.rotation.x = state.currentRotX;
-        model.rotation.y = state.currentRotY;
-        model.position.x = state.panX;
-        model.position.y = state.panY;
-        model.position.z = config.modelZ;
-
-        renderer.setClearColor(0x000000, config.transparent ? 0 : 1);
-        renderer.render(scene, camera);
-        paintTrail();
-        updateGridPhysics();
-        drawAscii();
-        raf = requestAnimationFrame(tick);
-      }
-
-      resize();
-      displayCanvas.addEventListener('pointermove', onPointerMove);
-      displayCanvas.addEventListener('pointerdown', onPointerDown);
-      displayCanvas.addEventListener('pointerup', onPointerUp);
-      displayCanvas.addEventListener('pointercancel', onPointerUp);
-      displayCanvas.addEventListener('pointerleave', onLeave);
-      window.addEventListener('resize', resize);
-      tick();
-      setStatus('Готово');
-
-      window.addEventListener('beforeunload', () => {
-        cancelAnimationFrame(raf);
-        renderer.dispose();
-      });
-    }
-
-    main().catch((error) => {
-      console.error(error);
-      showError(error instanceof Error ? error.message : String(error));
+    document.getElementById('refreshBtn').addEventListener('click', refresh);
+    document.getElementById('copyUrlBtn').addEventListener('click', async () => {
+      await copyText(buildViewerUrl(), 'URL скопирован');
     });
+    document.getElementById('copyEmbedBtn').addEventListener('click', async () => {
+      await copyText(ids.embedCode.value, 'Embed скопирован');
+    });
+    document.getElementById('copyCodeBtn').addEventListener('click', async () => {
+      await copyText(ids.embedCode.value, 'Embed скопирован');
+    });
+
+    for (const [inputId] of pairs) {
+      ids[inputId].addEventListener('input', () => {
+        syncValues();
+        refresh();
+      });
+    }
+
+    ['viewerUrl', 'objPath', 'charset', 'bg', 'color'].forEach((key) => {
+      ids[key].addEventListener('input', refresh);
+    });
+    ['mouseTrail', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
+      ids[key].addEventListener('change', refresh);
+    });
+
+    syncValues();
+    refresh();
   </script>
 </body>
 </html>
