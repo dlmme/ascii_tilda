@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Glyph Dither Embed Builder</title>
+  <style>
+    :root {
+      --bg: #0b0b10;
+      --panel: #12121a;
+      --panel2: #1a1a24;
+      --border: #2a2a36;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --ok: #86efac;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Arial, sans-serif;
+    }
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.05;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+    label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    input[type="text"], input[type="color"], input[type="range"], textarea, button {
+      width: 100%;
+    }
+    input[type="text"], textarea {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 14px;
+    }
+    input[type="range"] { accent-color: #fff; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 82px;
+      gap: 10px;
+      align-items: center;
+    }
+    .num {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+    .check input { width: auto; }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      color: #111;
+    }
+    button.secondary {
+      background: var(--panel2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .preview {
+      display: grid;
+      gap: 12px;
+    }
+    .frameWrap {
+      height: 70vh;
+      min-height: 560px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #05070a;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      background: transparent;
+    }
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .status {
+      color: var(--ok);
+      font-size: 13px;
+      min-height: 18px;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .frameWrap { min-height: 420px; height: 58vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <h1>Embed Builder</h1>
+      <div class="sub">Крути параметры viewer, смотри live preview и копируй готовый iframe-блок для Tilda.</div>
+
+      <div class="controls">
+        <div class="field">
+          <label for="viewerUrl">URL viewer.html</label>
+          <input id="viewerUrl" type="text" value="https://dlmme.github.io/ascii_tilda/viewer.html" />
+        </div>
+
+        <div class="field">
+          <label for="objPath">Путь к OBJ</label>
+          <input id="objPath" type="text" value="./model.obj" />
+        </div>
+
+        <div class="field">
+          <label>Cell</label>
+          <div class="row">
+            <input id="cell" type="range" min="4" max="40" value="12" />
+            <div id="cellVal" class="num">12</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Contrast</label>
+          <div class="row">
+            <input id="contrast" type="range" min="20" max="300" value="180" />
+            <div id="contrastVal" class="num">1.80</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Force</label>
+          <div class="row">
+            <input id="force" type="range" min="0" max="500" value="130" />
+            <div id="forceVal" class="num">1.30</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Radius</label>
+          <div class="row">
+            <input id="radius" type="range" min="20" max="500" value="140" />
+            <div id="radiusVal" class="num">140</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Return</label>
+          <div class="row">
+            <input id="returnStrength" type="range" min="1" max="50" value="12" />
+            <div id="returnVal" class="num">0.12</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Swirl</label>
+          <div class="row">
+            <input id="swirl" type="range" min="0" max="300" value="35" />
+            <div id="swirlVal" class="num">0.35</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Trail glow</label>
+          <div class="row">
+            <input id="trail" type="range" min="0" max="200" value="15" />
+            <div id="trailVal" class="num">0.15</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Decay</label>
+          <div class="row">
+            <input id="decay" type="range" min="75" max="99" value="93" />
+            <div id="decayVal" class="num">0.93</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Rotate speed</label>
+          <div class="row">
+            <input id="speed" type="range" min="0" max="50" value="4" />
+            <div id="speedVal" class="num">0.004</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="charset">Charset</label>
+          <input id="charset" type="text" value=" .,:;i1tfLCG08@" />
+        </div>
+
+        <div class="field">
+          <label for="bg">Background</label>
+          <input id="bg" type="color" value="#05070a" />
+        </div>
+
+        <div class="field">
+          <label for="color">Glyph color</label>
+          <input id="color" type="color" value="#ffffff" />
+        </div>
+
+        <label class="check"><input id="autoRotate" type="checkbox" /> Auto rotate</label>
+        <label class="check"><input id="mouseTrail" type="checkbox" checked /> Mouse trail</label>
+        <label class="check"><input id="transparent" type="checkbox" /> Transparent background</label>
+        <label class="check"><input id="hud" type="checkbox" /> Show HUD</label>
+
+        <div class="toolbar">
+          <button id="refreshBtn">Обновить preview</button>
+          <button id="copyUrlBtn" class="secondary">Скопировать URL</button>
+          <button id="copyEmbedBtn" class="secondary">Скопировать Embed</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div class="hint">Хостишь рядом с viewer.html на GitHub Pages. Открываешь editor.html, настраиваешь и копируешь iframe в Tilda.</div>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div class="card frameWrap">
+        <iframe id="previewFrame" title="Viewer preview"></iframe>
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <button id="copyCodeBtn" class="secondary">Скопировать код ещё раз</button>
+        </div>
+        <textarea id="embedCode" spellcheck="false"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ids = {
+      viewerUrl: document.getElementById('viewerUrl'),
+      objPath: document.getElementById('objPath'),
+      cell: document.getElementById('cell'),
+      contrast: document.getElementById('contrast'),
+      force: document.getElementById('force'),
+      radius: document.getElementById('radius'),
+      returnStrength: document.getElementById('returnStrength'),
+      swirl: document.getElementById('swirl'),
+      trail: document.getElementById('trail'),
+      decay: document.getElementById('decay'),
+      speed: document.getElementById('speed'),
+      charset: document.getElementById('charset'),
+      bg: document.getElementById('bg'),
+      color: document.getElementById('color'),
+      autoRotate: document.getElementById('autoRotate'),
+      mouseTrail: document.getElementById('mouseTrail'),
+      transparent: document.getElementById('transparent'),
+      hud: document.getElementById('hud'),
+      frame: document.getElementById('previewFrame'),
+      embedCode: document.getElementById('embedCode'),
+      status: document.getElementById('status')
+    };
+
+    const pairs = [
+      ['cell', 'cellVal', (v) => v],
+      ['contrast', 'contrastVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['force', 'forceVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['radius', 'radiusVal', (v) => v],
+      ['returnStrength', 'returnVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['swirl', 'swirlVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['trail', 'trailVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['decay', 'decayVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['speed', 'speedVal', (v) => (Number(v) / 1000).toFixed(3)]
+    ];
+
+    function syncValues() {
+      for (const [inputId, outputId, format] of pairs) {
+        document.getElementById(outputId).textContent = format(ids[inputId].value);
+      }
+    }
+
+    function buildViewerUrl() {
+      const base = ids.viewerUrl.value.trim();
+      const url = new URL(base, window.location.href);
+      url.searchParams.set('obj', ids.objPath.value.trim() || './model.obj');
+      url.searchParams.set('cell', ids.cell.value);
+      url.searchParams.set('contrast', (Number(ids.contrast.value) / 100).toFixed(2));
+      url.searchParams.set('force', (Number(ids.force.value) / 100).toFixed(2));
+      url.searchParams.set('radius', ids.radius.value);
+      url.searchParams.set('return', (Number(ids.returnStrength.value) / 100).toFixed(2));
+      url.searchParams.set('swirl', (Number(ids.swirl.value) / 100).toFixed(2));
+      url.searchParams.set('trail', (Number(ids.trail.value) / 100).toFixed(2));
+      url.searchParams.set('decay', (Number(ids.decay.value) / 100).toFixed(2));
+      url.searchParams.set('speed', (Number(ids.speed.value) / 1000).toFixed(3));
+      url.searchParams.set('charset', ids.charset.value);
+      url.searchParams.set('bg', ids.bg.value);
+      url.searchParams.set('color', ids.color.value);
+      url.searchParams.set('autoRotate', String(ids.autoRotate.checked));
+      url.searchParams.set('mouseTrail', String(ids.mouseTrail.checked));
+      url.searchParams.set('transparent', String(ids.transparent.checked));
+      url.searchParams.set('hud', String(ids.hud.checked));
+      return url.toString();
+    }
+
+    function buildEmbedCode(viewerUrl) {
+      return `<div style="width:100%; height:100vh; min-height:620px; overflow:hidden;">
+  <iframe
+    src="${viewerUrl}"
+    width="100%"
+    height="100%"
+    style="border:0; display:block;"
+    loading="lazy"
+    allowfullscreen
+  ></iframe>
+</div>`;
+    }
+
+    function refresh() {
+      try {
+        const viewerUrl = buildViewerUrl();
+        ids.frame.src = viewerUrl;
+        ids.embedCode.value = buildEmbedCode(viewerUrl);
+        ids.status.textContent = 'Preview обновлён';
+      } catch (error) {
+        ids.status.textContent = 'Ошибка: ' + (error && error.message ? error.message : String(error));
+      }
+    }
+
+    async function copyText(text, message) {
+      await navigator.clipboard.writeText(text);
+      ids.status.textContent = message;
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', refresh);
+    document.getElementById('copyUrlBtn').addEventListener('click', async () => {
+      await copyText(buildViewerUrl(), 'URL скопирован');
+    });
+    document.getElementById('copyEmbedBtn').addEventListener('click', async () => {
+      await copyText(ids.embedCode.value, 'Embed скопирован');
+    });
+    document.getElementById('copyCodeBtn').addEventListener('click', async () => {
+      await copyText(ids.embedCode.value, 'Embed скопирован');
+    });
+
+    for (const [inputId] of pairs) {
+      ids[inputId].addEventListener('input', () => {
+        syncValues();
+        refresh();
+      });
+    }
+
+    ['viewerUrl', 'objPath', 'charset', 'bg', 'color'].forEach((key) => {
+      ids[key].addEventListener('input', refresh);
+    });
+    ['autoRotate', 'mouseTrail', 'transparent', 'hud'].forEach((key) => {
+      ids[key].addEventListener('change', refresh);
+    });
+
+    syncValues();
+    refresh();
+  </script>
+</body>
+</html>
