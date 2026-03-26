@@ -395,12 +395,17 @@
       }
 
       function onMove(event) {
-        const rect = displayCanvas.getBoundingClientRect();
-        const x = (event.clientX - rect.left) / rect.width;
-        const y = (event.clientY - rect.top) / rect.height;
-        mouse.set(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)));
-        targetRot.x = (mouse.x - 0.5) * 1.1 + 0.45;
-        targetRot.y = (0.5 - mouse.y) * 0.65 - 0.25;
+      const rect = displayCanvas.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+
+      mouse.set(
+        Math.min(1, Math.max(0, x)),
+        Math.min(1, Math.max(0, y))
+      );
+
+      targetRot.x = (0.5 - mouse.x) * 1.1 + 0.45;
+      targetRot.y = (mouse.y - 0.5) * 0.65 - 0.25;
       }
 
       function onLeave() {
