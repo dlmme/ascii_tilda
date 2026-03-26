@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Glyph Dither Embed Builder v2</title>
+  <title>Glyph Dither Embed Builder v3</title>
   <style>
     :root {
       --bg: #0b0b10;
@@ -141,7 +141,7 @@
       background: transparent;
     }
     textarea {
-      min-height: 200px;
+      min-height: 220px;
       resize: vertical;
       font-family: "Courier New", monospace;
       font-size: 12px;
@@ -172,7 +172,7 @@
 <body>
   <div class="app">
     <div class="card">
-      <h1>Embed Builder v2</h1>
+      <h1>Embed Builder v3</h1>
       <div class="sub">Настраивай viewer, смотри preview и копируй готовый iframe для Tilda.</div>
 
       <div class="controls">
@@ -261,7 +261,7 @@
 
         <label class="check"><input id="mouseRotate" type="checkbox" checked /> Mouse rotate</label>
         <label class="check"><input id="autoRotate" type="checkbox" /> Auto rotate</label>
-        <label class="check"><input id="dragPan" type="checkbox" checked /> Drag pan</label>
+        <label class="check"><input id="dragPan" type="checkbox" /> Разрешить drag pan в embed</label>
 
         <div class="field">
           <label>Rotate speed</label>
@@ -337,6 +337,32 @@
           </div>
         </div>
 
+        <div class="groupTitle">Light</div>
+
+        <div class="field">
+          <label>Light rotation</label>
+          <div class="row">
+            <input id="lightRotation" type="range" min="-628" max="628" value="70" />
+            <div id="lightRotationVal" class="num">0.70</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Light height</label>
+          <div class="row">
+            <input id="lightHeight" type="range" min="-1000" max="1000" value="400" />
+            <div id="lightHeightVal" class="num">4.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Light distance</label>
+          <div class="row">
+            <input id="lightDistance" type="range" min="20" max="2000" value="500" />
+            <div id="lightDistanceVal" class="num">5.00</div>
+          </div>
+        </div>
+
         <div class="groupTitle">Colors / UI</div>
 
         <div class="field">
@@ -360,7 +386,7 @@
         </div>
 
         <div id="status" class="status"></div>
-        <div class="hint">Положи editor.html рядом с viewer.html на GitHub Pages. Открываешь editor, крутишь всё здесь и копируешь iframe в Tilda.</div>
+        <div class="hint">Model X / Y / Z двигают модель в редакторе и в embed. Drag pan в итоговом embed по умолчанию выключен.</div>
       </div>
     </div>
 
@@ -407,6 +433,9 @@
       modelZ: document.getElementById('modelZ'),
       baseRotX: document.getElementById('baseRotX'),
       baseRotY: document.getElementById('baseRotY'),
+      lightRotation: document.getElementById('lightRotation'),
+      lightHeight: document.getElementById('lightHeight'),
+      lightDistance: document.getElementById('lightDistance'),
       frame: document.getElementById('previewFrame'),
       embedCode: document.getElementById('embedCode'),
       status: document.getElementById('status')
@@ -429,7 +458,10 @@
       ['modelY', 'modelYVal', (v) => (Number(v) / 100).toFixed(2)],
       ['modelZ', 'modelZVal', (v) => (Number(v) / 100).toFixed(2)],
       ['baseRotX', 'baseRotXVal', (v) => (Number(v) / 100).toFixed(2)],
-      ['baseRotY', 'baseRotYVal', (v) => (Number(v) / 100).toFixed(2)]
+      ['baseRotY', 'baseRotYVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['lightRotation', 'lightRotationVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['lightHeight', 'lightHeightVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['lightDistance', 'lightDistanceVal', (v) => (Number(v) / 100).toFixed(2)]
     ];
 
     function syncValues() {
@@ -441,6 +473,7 @@
     function buildViewerUrl() {
       const base = ids.viewerUrl.value.trim();
       const url = new URL(base, window.location.href);
+
       url.searchParams.set('obj', ids.objPath.value.trim() || './model.obj');
       url.searchParams.set('cell', ids.cell.value);
       url.searchParams.set('contrast', (Number(ids.contrast.value) / 100).toFixed(2));
@@ -451,23 +484,32 @@
       url.searchParams.set('trail', (Number(ids.trail.value) / 100).toFixed(2));
       url.searchParams.set('decay', (Number(ids.decay.value) / 100).toFixed(2));
       url.searchParams.set('charset', ids.charset.value);
+
       url.searchParams.set('bg', ids.bg.value);
       url.searchParams.set('color', ids.color.value);
       url.searchParams.set('mouseTrail', String(ids.mouseTrail.checked));
       url.searchParams.set('transparent', String(ids.transparent.checked));
       url.searchParams.set('hud', String(ids.hud.checked));
+
       url.searchParams.set('autoRotate', String(ids.autoRotate.checked));
       url.searchParams.set('rotateSpeed', (Number(ids.rotateSpeed.value) / 1000).toFixed(3));
       url.searchParams.set('mouseRotate', String(ids.mouseRotate.checked));
       url.searchParams.set('rotateInfluenceX', (Number(ids.rotateInfluenceX.value) / 100).toFixed(2));
       url.searchParams.set('rotateInfluenceY', (Number(ids.rotateInfluenceY.value) / 100).toFixed(2));
+
       url.searchParams.set('dragPan', String(ids.dragPan.checked));
       url.searchParams.set('panStrength', (Number(ids.panStrength.value) / 100).toFixed(2));
+
       url.searchParams.set('modelX', (Number(ids.modelX.value) / 100).toFixed(2));
       url.searchParams.set('modelY', (Number(ids.modelY.value) / 100).toFixed(2));
       url.searchParams.set('modelZ', (Number(ids.modelZ.value) / 100).toFixed(2));
       url.searchParams.set('baseRotX', (Number(ids.baseRotX.value) / 100).toFixed(2));
       url.searchParams.set('baseRotY', (Number(ids.baseRotY.value) / 100).toFixed(2));
+
+      url.searchParams.set('lightRotation', (Number(ids.lightRotation.value) / 100).toFixed(2));
+      url.searchParams.set('lightHeight', (Number(ids.lightHeight.value) / 100).toFixed(2));
+      url.searchParams.set('lightDistance', (Number(ids.lightDistance.value) / 100).toFixed(2));
+
       return url.toString();
     }
 
@@ -521,6 +563,7 @@
     ['viewerUrl', 'objPath', 'charset', 'bg', 'color'].forEach((key) => {
       ids[key].addEventListener('input', refresh);
     });
+
     ['mouseTrail', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
       ids[key].addEventListener('change', refresh);
     });
