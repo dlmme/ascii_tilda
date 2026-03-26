@@ -363,6 +363,38 @@
           </div>
         </div>
 
+        <div class="field">
+          <label>Light intensity</label>
+          <div class="row">
+            <input id="lightIntensity" type="range" min="0" max="1000" value="220" />
+            <div id="lightIntensityVal" class="num">2.20</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Ambient intensity</label>
+          <div class="row">
+            <input id="ambientIntensity" type="range" min="0" max="200" value="12" />
+            <div id="ambientIntensityVal" class="num">0.12</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Shadow power</label>
+          <div class="row">
+            <input id="shadowPower" type="range" min="20" max="400" value="180" />
+            <div id="shadowPowerVal" class="num">1.80</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Black threshold</label>
+          <div class="row">
+            <input id="blackThreshold" type="range" min="0" max="100" value="12" />
+            <div id="blackThresholdVal" class="num">0.12</div>
+          </div>
+        </div>
+
         <div class="groupTitle">Colors / UI</div>
 
         <div class="field">
@@ -407,6 +439,7 @@
     const ids = {
       viewerUrl: document.getElementById('viewerUrl'),
       objPath: document.getElementById('objPath'),
+
       cell: document.getElementById('cell'),
       contrast: document.getElementById('contrast'),
       force: document.getElementById('force'),
@@ -416,11 +449,13 @@
       trail: document.getElementById('trail'),
       decay: document.getElementById('decay'),
       charset: document.getElementById('charset'),
+
       bg: document.getElementById('bg'),
       color: document.getElementById('color'),
       mouseTrail: document.getElementById('mouseTrail'),
       transparent: document.getElementById('transparent'),
       hud: document.getElementById('hud'),
+
       autoRotate: document.getElementById('autoRotate'),
       rotateSpeed: document.getElementById('rotateSpeed'),
       mouseRotate: document.getElementById('mouseRotate'),
@@ -428,14 +463,21 @@
       rotateInfluenceY: document.getElementById('rotateInfluenceY'),
       dragPan: document.getElementById('dragPan'),
       panStrength: document.getElementById('panStrength'),
+
       modelX: document.getElementById('modelX'),
       modelY: document.getElementById('modelY'),
       modelZ: document.getElementById('modelZ'),
       baseRotX: document.getElementById('baseRotX'),
       baseRotY: document.getElementById('baseRotY'),
+
       lightRotation: document.getElementById('lightRotation'),
       lightHeight: document.getElementById('lightHeight'),
       lightDistance: document.getElementById('lightDistance'),
+      lightIntensity: document.getElementById('lightIntensity'),
+      ambientIntensity: document.getElementById('ambientIntensity'),
+      shadowPower: document.getElementById('shadowPower'),
+      blackThreshold: document.getElementById('blackThreshold'),
+
       frame: document.getElementById('previewFrame'),
       embedCode: document.getElementById('embedCode'),
       status: document.getElementById('status')
@@ -450,18 +492,25 @@
       ['swirl', 'swirlVal', (v) => (Number(v) / 100).toFixed(2)],
       ['trail', 'trailVal', (v) => (Number(v) / 100).toFixed(2)],
       ['decay', 'decayVal', (v) => (Number(v) / 100).toFixed(2)],
+
       ['rotateSpeed', 'rotateSpeedVal', (v) => (Number(v) / 1000).toFixed(3)],
       ['rotateInfluenceX', 'rotateInfluenceXVal', (v) => (Number(v) / 100).toFixed(2)],
       ['rotateInfluenceY', 'rotateInfluenceYVal', (v) => (Number(v) / 100).toFixed(2)],
       ['panStrength', 'panStrengthVal', (v) => (Number(v) / 100).toFixed(2)],
+
       ['modelX', 'modelXVal', (v) => (Number(v) / 100).toFixed(2)],
       ['modelY', 'modelYVal', (v) => (Number(v) / 100).toFixed(2)],
       ['modelZ', 'modelZVal', (v) => (Number(v) / 100).toFixed(2)],
       ['baseRotX', 'baseRotXVal', (v) => (Number(v) / 100).toFixed(2)],
       ['baseRotY', 'baseRotYVal', (v) => (Number(v) / 100).toFixed(2)],
+
       ['lightRotation', 'lightRotationVal', (v) => (Number(v) / 100).toFixed(2)],
       ['lightHeight', 'lightHeightVal', (v) => (Number(v) / 100).toFixed(2)],
-      ['lightDistance', 'lightDistanceVal', (v) => (Number(v) / 100).toFixed(2)]
+      ['lightDistance', 'lightDistanceVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['lightIntensity', 'lightIntensityVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['ambientIntensity', 'ambientIntensityVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['shadowPower', 'shadowPowerVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['blackThreshold', 'blackThresholdVal', (v) => (Number(v) / 100).toFixed(2)]
     ];
 
     function syncValues() {
@@ -475,6 +524,7 @@
       const url = new URL(base, window.location.href);
 
       url.searchParams.set('obj', ids.objPath.value.trim() || './model.obj');
+
       url.searchParams.set('cell', ids.cell.value);
       url.searchParams.set('contrast', (Number(ids.contrast.value) / 100).toFixed(2));
       url.searchParams.set('force', (Number(ids.force.value) / 100).toFixed(2));
@@ -496,7 +546,6 @@
       url.searchParams.set('mouseRotate', String(ids.mouseRotate.checked));
       url.searchParams.set('rotateInfluenceX', (Number(ids.rotateInfluenceX.value) / 100).toFixed(2));
       url.searchParams.set('rotateInfluenceY', (Number(ids.rotateInfluenceY.value) / 100).toFixed(2));
-
       url.searchParams.set('dragPan', String(ids.dragPan.checked));
       url.searchParams.set('panStrength', (Number(ids.panStrength.value) / 100).toFixed(2));
 
@@ -509,6 +558,10 @@
       url.searchParams.set('lightRotation', (Number(ids.lightRotation.value) / 100).toFixed(2));
       url.searchParams.set('lightHeight', (Number(ids.lightHeight.value) / 100).toFixed(2));
       url.searchParams.set('lightDistance', (Number(ids.lightDistance.value) / 100).toFixed(2));
+      url.searchParams.set('lightIntensity', (Number(ids.lightIntensity.value) / 100).toFixed(2));
+      url.searchParams.set('ambientIntensity', (Number(ids.ambientIntensity.value) / 100).toFixed(2));
+      url.searchParams.set('shadowPower', (Number(ids.shadowPower.value) / 100).toFixed(2));
+      url.searchParams.set('blackThreshold', (Number(ids.blackThreshold.value) / 100).toFixed(2));
 
       return url.toString();
     }
