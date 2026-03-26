@@ -147,13 +147,13 @@
       transparent: parseBool(params.get('transparent'), false),
       hud: parseBool(params.get('hud'), true),
 
-      force: clampNumber(params.get('force'), 0, 5, 1.3),
-      radius: clampNumber(params.get('radius'), 20, 500, 140),
-      returnStrength: clampNumber(params.get('return'), 0.01, 0.5, 0.12),
-      swirl: clampNumber(params.get('swirl'), 0, 3, 0.35),
+      force: clampNumber(params.get('force'), 0, 5, 1.6),
+      radius: clampNumber(params.get('radius'), 20, 500, 160),
+      returnStrength: clampNumber(params.get('return'), 0.01, 0.5, 0.14),
+      swirl: clampNumber(params.get('swirl'), 0, 3, 0.08),
 
       mouseTrail: parseBool(params.get('mouseTrail'), true),
-      trail: clampNumber(params.get('trail'), 0, 2, 0.1),
+      trail: clampNumber(params.get('trail'), 0, 2, 0.04),
       decay: clampNumber(params.get('decay'), 0.75, 0.995, 0.92),
 
       autoRotate: parseBool(params.get('autoRotate'), false),
@@ -186,7 +186,7 @@
     }
 
     metaPill.textContent =
-      `${config.cell}px glyph · light ${config.lightIntensity.toFixed(2)} · shadow ${config.shadowPower.toFixed(2)}`;
+      `${config.cell}px glyph · force ${config.force.toFixed(2)} · radius ${Math.round(config.radius)}`;
 
     function resolveUrl(path) {
       try {
@@ -327,10 +327,14 @@
         dragging: false,
         lastPointerX: 0,
         lastPointerY: 0,
+        lastPointerDX: 0,
+        lastPointerDY: 0,
+
         panX: config.modelX,
         panY: config.modelY,
         targetPanX: config.modelX,
         targetPanY: config.modelY,
+
         currentRotX: config.baseRotX,
         currentRotY: config.baseRotY,
         targetRotX: config.baseRotX,
@@ -422,39 +426,52 @@
       function updateGridPhysics() {
         const mouseX = mouse.x * width;
         const mouseY = mouse.y * height;
+
         const radius = config.radius;
         const radiusSq = radius * radius;
 
+        const pointerVX = state.lastPointerDX || 0;
+        const pointerVY = state.lastPointerDY || 0;
+
         for (let i = 0; i < grid.length; i++) {
           const node = grid[i];
-          const dx = node.x - mouseX;
-          const dy = node.y - mouseY;
+
+          const dx = node.baseX - mouseX;
+          const dy = node.baseY - mouseY;
           const distSq = dx * dx + dy * dy;
 
           if (distSq < radiusSq) {
             const dist = Math.sqrt(distSq) || 0.0001;
             const falloff = 1 - dist / radius;
+
             const nx = dx / dist;
             const ny = dy / dist;
-            const repel = falloff * config.force * 2.4;
+            const repel = falloff * config.force * 3.2;
 
             node.vx += nx * repel;
             node.vy += ny * repel;
 
+            const motionInfluence = falloff * 0.18;
+            node.vx += pointerVX * motionInfluence;
+            node.vy += pointerVY * motionInfluence;
+
             const tx = -ny;
             const ty = nx;
-            node.vx += tx * falloff * config.swirl * 0.8;
-            node.vy += ty * falloff * config.swirl * 0.8;
+            node.vx += tx * falloff * config.swirl * 0.18;
+            node.vy += ty * falloff * config.swirl * 0.18;
 
-            node.glow = Math.min(1, node.glow + falloff * 0.18);
+            node.glow = Math.min(1, node.glow + falloff * 0.16);
           }
 
           node.vx += (node.baseX - node.x) * config.returnStrength;
           node.vy += (node.baseY - node.y) * config.returnStrength;
-          node.vx *= 0.86;
-          node.vy *= 0.86;
+
+          node.vx *= 0.84;
+          node.vy *= 0.84;
+
           node.x += node.vx;
           node.y += node.vy;
+
           node.glow *= 0.92;
         }
       }
@@ -493,7 +510,6 @@
             const tr = trailData[idx] / 255;
 
             let brightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
-
             brightness = Math.pow(Math.max(0, brightness), config.shadowPower);
 
             if (brightness < config.blackThreshold) {
@@ -505,11 +521,7 @@
               Math.max(0, brightness + tr * config.trail * 0.35 + node.glow * 0.18)
             );
 
-            const charIndex = Math.min(
-              chars.length - 1,
-              Math.floor(brightness * (chars.length - 1))
-            );
-
+            const charIndex = Math.min(chars.length - 1, Math.floor(brightness * (chars.length - 1)));
             const char = chars[charIndex];
 
             if (char !== ' ' && brightness > 0.01) {
@@ -542,16 +554,19 @@
           Math.min(1, Math.max(0, y))
         );
 
-        if (state.dragging && config.dragPan) {
-          const dx = event.clientX - state.lastPointerX;
-          const dy = event.clientY - state.lastPointerY;
+        const dx = event.clientX - state.lastPointerX;
+        const dy = event.clientY - state.lastPointerY;
 
+        state.lastPointerDX = dx * 0.12;
+        state.lastPointerDY = dy * 0.12;
+
+        if (state.dragging && config.dragPan) {
           state.targetPanX += (dx / Math.max(320, width)) * 4 * config.panStrength;
           state.targetPanY -= (dy / Math.max(320, height)) * 4 * config.panStrength;
-
-          state.lastPointerX = event.clientX;
-          state.lastPointerY = event.clientY;
         }
+
+        state.lastPointerX = event.clientX;
+        state.lastPointerY = event.clientY;
       }
 
       function onPointerDown(event) {
@@ -572,6 +587,8 @@
       function onLeave() {
         mouse.set(0.5, 0.5);
         state.dragging = false;
+        state.lastPointerDX = 0;
+        state.lastPointerDY = 0;
         mount.classList.remove('dragging');
       }
 
