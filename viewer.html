@@ -129,6 +129,44 @@
       statusPill.textContent = message;
     }
 
+    function resolveUrl(path) {
+      try {
+        return new URL(path, window.location.href).toString();
+      } catch {
+        return path;
+      }
+    }
+
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
+      const full = clean.length === 3
+        ? clean.split('').map((c) => c + c).join('')
+        : clean.padEnd(6, 'f').slice(0, 6);
+      return {
+        r: parseInt(full.slice(0, 2), 16),
+        g: parseInt(full.slice(2, 4), 16),
+        b: parseInt(full.slice(4, 6), 16)
+      };
+    }
+
+    function colorWithAlpha(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function rgbaString(r, g, b, a) {
+      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a})`;
+    }
+
+    function applySaturation(r, g, b, saturation) {
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      return {
+        r: luma + (r - luma) * saturation,
+        g: luma + (g - luma) * saturation,
+        b: luma + (b - luma) * saturation
+      };
+    }
+
     const params = new URLSearchParams(window.location.search);
 
     const config = {
@@ -178,6 +216,8 @@
 
       materialMode: params.get('materialMode') || 'matcap',
       matcapPreset: params.get('matcapPreset') || 'iridescent',
+      matcapSource: params.get('matcapSource') || 'preset',
+      matcapUrl: params.get('matcapUrl') || '',
       colorizeGlyphs: parseBool(params.get('colorizeGlyphs'), true),
       colorStrength: clampNumber(params.get('colorStrength'), 0, 2, 1.0),
       saturation: clampNumber(params.get('saturation'), 0, 2, 1.0)
@@ -188,45 +228,7 @@
     }
 
     metaPill.textContent =
-      `${config.cell}px glyph · ${config.materialMode} · color ${config.colorizeGlyphs ? 'on' : 'off'}`;
-
-    function resolveUrl(path) {
-      try {
-        return new URL(path, window.location.href).toString();
-      } catch {
-        return path;
-      }
-    }
-
-    function hexToRgb(hex) {
-      const clean = hex.replace('#', '');
-      const full = clean.length === 3
-        ? clean.split('').map((c) => c + c).join('')
-        : clean.padEnd(6, 'f').slice(0, 6);
-      return {
-        r: parseInt(full.slice(0, 2), 16),
-        g: parseInt(full.slice(2, 4), 16),
-        b: parseInt(full.slice(4, 6), 16)
-      };
-    }
-
-    function colorWithAlpha(hex, alpha) {
-      const { r, g, b } = hexToRgb(hex);
-      return `rgba(${r},${g},${b},${alpha})`;
-    }
-
-    function rgbaString(r, g, b, a) {
-      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a})`;
-    }
-
-    function applySaturation(r, g, b, saturation) {
-      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      return {
-        r: luma + (r - luma) * saturation,
-        g: luma + (g - luma) * saturation,
-        b: luma + (b - luma) * saturation
-      };
-    }
+      `${config.cell}px glyph · ${config.materialMode} · ${config.colorizeGlyphs ? 'color' : 'mono'}`;
 
     function makeMatcapTexture(preset) {
       const size = 256;
@@ -234,10 +236,7 @@
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
-
       if (!ctx) return null;
-
-      ctx.clearRect(0, 0, size, size);
 
       let stops;
       switch (preset) {
@@ -306,15 +305,25 @@
       return tex;
     }
 
-    function makeMaterial() {
+    async function loadMatcapTexture() {
+      if (config.matcapSource === 'url' && config.matcapUrl) {
+        const loader = new THREE.TextureLoader();
+        const texture = await loader.loadAsync(resolveUrl(config.matcapUrl));
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.needsUpdate = true;
+        return texture;
+      }
+      return makeMatcapTexture(config.matcapPreset);
+    }
+
+    async function makeMaterial() {
       if (config.materialMode === 'normal') {
         return new THREE.MeshNormalMaterial();
       }
 
       if (config.materialMode === 'matcap') {
-        return new THREE.MeshMatcapMaterial({
-          matcap: makeMatcapTexture(config.matcapPreset)
-        });
+        const matcap = await loadMatcapTexture();
+        return new THREE.MeshMatcapMaterial({ matcap });
       }
 
       return new THREE.MeshStandardMaterial({
@@ -324,15 +333,20 @@
       });
     }
 
-    function collapseObjectToMesh(root) {
+    async function collapseObjectToMesh(root) {
       const group = new THREE.Group();
+      const baseMaterial = await makeMaterial();
 
       root.traverse((child) => {
         if (child.isMesh && child.geometry) {
           const geometry = child.geometry.clone();
           geometry.computeVertexNormals();
 
-          const material = makeMaterial();
+          const material = baseMaterial.clone();
+          if (baseMaterial.matcap) {
+            material.matcap = baseMaterial.matcap;
+          }
+
           const mesh = new THREE.Mesh(geometry, material);
           mesh.position.copy(child.position);
           mesh.rotation.copy(child.rotation);
@@ -383,7 +397,7 @@
       setStatus('Собираю сцену…');
       const loader = new OBJLoader();
       const parsed = loader.parse(objText);
-      const meshGroup = collapseObjectToMesh(parsed);
+      const meshGroup = await collapseObjectToMesh(parsed);
 
       if (!meshGroup.children.length) {
         throw new Error('OBJ загружен, но в нём не найдено mesh-геометрии.');
@@ -433,12 +447,10 @@
         lastPointerY: 0,
         lastPointerDX: 0,
         lastPointerDY: 0,
-
         panX: config.modelX,
         panY: config.modelY,
         targetPanX: config.modelX,
         targetPanY: config.modelY,
-
         currentRotX: config.baseRotX,
         currentRotY: config.baseRotY,
         targetRotX: config.baseRotX,
@@ -504,7 +516,6 @@
 
       function paintTrail() {
         trailCtx.clearRect(0, 0, width, height);
-
         if (!config.cursorGlow || config.trail <= 0) return;
 
         const x = mouse.x * width;
