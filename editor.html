@@ -237,7 +237,7 @@
         </div>
 
         <div class="field">
-          <label>Trail glow</label>
+          <label>Trail glow size</label>
           <div class="row">
             <input id="trail" type="range" min="0" max="200" value="10" />
             <div id="trailVal" class="num">0.10</div>
@@ -407,7 +407,8 @@
           <input id="color" type="color" value="#ffffff" />
         </div>
 
-        <label class="check"><input id="mouseTrail" type="checkbox" checked /> Mouse trail</label>
+        <label class="check"><input id="mouseTrail" type="checkbox" checked /> Mouse trail / repel</label>
+        <label class="check"><input id="cursorGlow" type="checkbox" /> Cursor glow</label>
         <label class="check"><input id="transparent" type="checkbox" /> Transparent background</label>
         <label class="check"><input id="hud" type="checkbox" /> Show HUD</label>
 
@@ -418,7 +419,7 @@
         </div>
 
         <div id="status" class="status"></div>
-        <div class="hint">Model X / Y / Z двигают модель в редакторе и в embed. Drag pan в итоговом embed по умолчанию выключен.</div>
+        <div class="hint">Если не нужен круг за курсором — оставь Mouse trail / repel включённым, а Cursor glow выключенным.</div>
       </div>
     </div>
 
@@ -453,6 +454,7 @@
       bg: document.getElementById('bg'),
       color: document.getElementById('color'),
       mouseTrail: document.getElementById('mouseTrail'),
+      cursorGlow: document.getElementById('cursorGlow'),
       transparent: document.getElementById('transparent'),
       hud: document.getElementById('hud'),
 
@@ -538,6 +540,7 @@
       url.searchParams.set('bg', ids.bg.value);
       url.searchParams.set('color', ids.color.value);
       url.searchParams.set('mouseTrail', String(ids.mouseTrail.checked));
+      url.searchParams.set('cursorGlow', String(ids.cursorGlow.checked));
       url.searchParams.set('transparent', String(ids.transparent.checked));
       url.searchParams.set('hud', String(ids.hud.checked));
 
@@ -617,7 +620,7 @@
       ids[key].addEventListener('input', refresh);
     });
 
-    ['mouseTrail', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
+    ['mouseTrail', 'cursorGlow', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
       ids[key].addEventListener('change', refresh);
     });
 
