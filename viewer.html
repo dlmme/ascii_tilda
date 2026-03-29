@@ -153,6 +153,7 @@
       swirl: clampNumber(params.get('swirl'), 0, 3, 0.08),
 
       mouseTrail: parseBool(params.get('mouseTrail'), true),
+      cursorGlow: parseBool(params.get('cursorGlow'), false),
       trail: clampNumber(params.get('trail'), 0, 2, 0.04),
       decay: clampNumber(params.get('decay'), 0.75, 0.995, 0.92),
 
@@ -399,29 +400,27 @@
         }
       }
 
-      function paintTrail() {
-        trailCtx.globalCompositeOperation = 'source-over';
-        trailCtx.fillStyle = `rgba(0,0,0,${1 - config.decay})`;
-        trailCtx.fillRect(0, 0, width, height);
+function paintTrail() {
+  trailCtx.clearRect(0, 0, width, height);
 
-        if (!config.mouseTrail || config.trail <= 0) return;
+  if (!config.cursorGlow || config.trail <= 0) return;
 
-        const x = mouse.x * width;
-        const y = mouse.y * height;
+  const x = mouse.x * width;
+  const y = mouse.y * height;
 
-        const grad = trailCtx.createRadialGradient(
-          x, y, 0,
-          x, y, Math.max(40, width * 0.12 * config.trail + 20)
-        );
+  const grad = trailCtx.createRadialGradient(
+    x, y, 0,
+    x, y, Math.max(40, width * 0.12 * config.trail + 20)
+  );
 
-        grad.addColorStop(0, `rgba(255,255,255,${0.28 + config.trail * 0.45})`);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
+  grad.addColorStop(0, `rgba(255,255,255,${0.28 + config.trail * 0.45})`);
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
 
-        trailCtx.fillStyle = grad;
-        trailCtx.beginPath();
-        trailCtx.arc(x, y, Math.max(30, width * 0.08 * config.trail + 18), 0, Math.PI * 2);
-        trailCtx.fill();
-      }
+  trailCtx.fillStyle = grad;
+  trailCtx.beginPath();
+  trailCtx.arc(x, y, Math.max(30, width * 0.08 * config.trail + 18), 0, Math.PI * 2);
+  trailCtx.fill();
+}
 
       function updateGridPhysics() {
         const mouseX = mouse.x * width;
@@ -507,7 +506,7 @@
             const g = baseData[idx + 1];
             const b = baseData[idx + 2];
             const a = baseData[idx + 3] / 255;
-            const tr = trailData[idx] / 255;
+            const tr = config.cursorGlow ? trailData[idx] / 255 : 0;
 
             let brightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
             brightness = Math.pow(Math.max(0, brightness), config.shadowPower);
@@ -517,9 +516,9 @@
             }
 
             brightness = Math.min(
-              1,
-              Math.max(0, brightness + tr * config.trail * 0.35 + node.glow * 0.18)
-            );
+  1,
+  Math.max(0, brightness + tr * config.trail * 0.35 + node.glow * 0.18)
+);
 
             const charIndex = Math.min(chars.length - 1, Math.floor(brightness * (chars.length - 1)));
             const char = chars[charIndex];
