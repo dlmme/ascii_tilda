@@ -23,12 +23,9 @@
       cursor: grab;
     }
 
-    #mount.dragging {
-      cursor: grabbing;
-    }
+    #mount.dragging { cursor: grabbing; }
 
-    #webgl,
-    #display {
+    #webgl, #display {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -45,7 +42,7 @@
       gap: 8px;
       align-items: center;
       flex-wrap: wrap;
-      max-width: min(92vw, 1100px);
+      max-width: min(92vw, 1200px);
       pointer-events: none;
     }
 
@@ -60,9 +57,7 @@
       line-height: 1;
     }
 
-    .hidden {
-      display: none !important;
-    }
+    .hidden { display: none !important; }
 
     #errorBox {
       position: fixed;
@@ -147,10 +142,10 @@
       transparent: parseBool(params.get('transparent'), false),
       hud: parseBool(params.get('hud'), true),
 
-      force: clampNumber(params.get('force'), 0, 5, 1.6),
-      radius: clampNumber(params.get('radius'), 20, 500, 160),
-      returnStrength: clampNumber(params.get('return'), 0.01, 0.5, 0.14),
-      swirl: clampNumber(params.get('swirl'), 0, 3, 0.08),
+      force: clampNumber(params.get('force'), 0, 5, 0.75),
+      radius: clampNumber(params.get('radius'), 20, 500, 140),
+      returnStrength: clampNumber(params.get('return'), 0.01, 0.5, 0.18),
+      swirl: clampNumber(params.get('swirl'), 0, 3, 0.03),
 
       mouseTrail: parseBool(params.get('mouseTrail'), true),
       cursorGlow: parseBool(params.get('cursorGlow'), false),
@@ -179,7 +174,13 @@
       ambientIntensity: clampNumber(params.get('ambientIntensity'), 0, 2, 0.12),
 
       shadowPower: clampNumber(params.get('shadowPower'), 0.2, 4, 1.8),
-      blackThreshold: clampNumber(params.get('blackThreshold'), 0, 1, 0.12)
+      blackThreshold: clampNumber(params.get('blackThreshold'), 0, 1, 0.12),
+
+      materialMode: params.get('materialMode') || 'matcap',
+      matcapPreset: params.get('matcapPreset') || 'iridescent',
+      colorizeGlyphs: parseBool(params.get('colorizeGlyphs'), true),
+      colorStrength: clampNumber(params.get('colorStrength'), 0, 2, 1.0),
+      saturation: clampNumber(params.get('saturation'), 0, 2, 1.0)
     };
 
     if (!config.hud) {
@@ -187,7 +188,7 @@
     }
 
     metaPill.textContent =
-      `${config.cell}px glyph · force ${config.force.toFixed(2)} · radius ${Math.round(config.radius)}`;
+      `${config.cell}px glyph · ${config.materialMode} · color ${config.colorizeGlyphs ? 'on' : 'off'}`;
 
     function resolveUrl(path) {
       try {
@@ -197,18 +198,130 @@
       }
     }
 
-    function colorWithAlpha(hex, alpha) {
-      if (!hex.startsWith('#')) return hex;
-      const clean = hex.slice(1);
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
       const full = clean.length === 3
         ? clean.split('').map((c) => c + c).join('')
         : clean.padEnd(6, 'f').slice(0, 6);
+      return {
+        r: parseInt(full.slice(0, 2), 16),
+        g: parseInt(full.slice(2, 4), 16),
+        b: parseInt(full.slice(4, 6), 16)
+      };
+    }
 
-      const r = parseInt(full.slice(0, 2), 16);
-      const g = parseInt(full.slice(2, 4), 16);
-      const b = parseInt(full.slice(4, 6), 16);
-
+    function colorWithAlpha(hex, alpha) {
+      const { r, g, b } = hexToRgb(hex);
       return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function rgbaString(r, g, b, a) {
+      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a})`;
+    }
+
+    function applySaturation(r, g, b, saturation) {
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      return {
+        r: luma + (r - luma) * saturation,
+        g: luma + (g - luma) * saturation,
+        b: luma + (b - luma) * saturation
+      };
+    }
+
+    function makeMatcapTexture(preset) {
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) return null;
+
+      ctx.clearRect(0, 0, size, size);
+
+      let stops;
+      switch (preset) {
+        case 'silver':
+          stops = [
+            [0.00, '#ffffff'],
+            [0.18, '#d9dce2'],
+            [0.38, '#8e939d'],
+            [0.62, '#f2f4f7'],
+            [0.82, '#767d87'],
+            [1.00, '#14171c']
+          ];
+          break;
+        case 'chrome':
+          stops = [
+            [0.00, '#ffffff'],
+            [0.12, '#e7ecf8'],
+            [0.26, '#6f7c96'],
+            [0.46, '#fefefe'],
+            [0.68, '#495872'],
+            [0.84, '#ced6e5'],
+            [1.00, '#090b10']
+          ];
+          break;
+        case 'clay':
+          stops = [
+            [0.00, '#fff6ef'],
+            [0.18, '#f1c9b0'],
+            [0.45, '#c68468'],
+            [0.72, '#7f4a3d'],
+            [1.00, '#261713']
+          ];
+          break;
+        case 'neon':
+          stops = [
+            [0.00, '#ffffff'],
+            [0.12, '#72f3ff'],
+            [0.36, '#3f7cff'],
+            [0.62, '#d14cff'],
+            [0.82, '#25164d'],
+            [1.00, '#05040c']
+          ];
+          break;
+        case 'iridescent':
+        default:
+          stops = [
+            [0.00, '#ffffff'],
+            [0.12, '#6de8ff'],
+            [0.28, '#4e74ff'],
+            [0.46, '#ff4fcf'],
+            [0.64, '#ff8a65'],
+            [0.82, '#5a52ff'],
+            [1.00, '#090613']
+          ];
+          break;
+      }
+
+      const grad = ctx.createRadialGradient(size * 0.36, size * 0.30, 8, size * 0.5, size * 0.5, size * 0.62);
+      for (const [pos, color] of stops) grad.addColorStop(pos, color);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function makeMaterial() {
+      if (config.materialMode === 'normal') {
+        return new THREE.MeshNormalMaterial();
+      }
+
+      if (config.materialMode === 'matcap') {
+        return new THREE.MeshMatcapMaterial({
+          matcap: makeMatcapTexture(config.matcapPreset)
+        });
+      }
+
+      return new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.9,
+        metalness: 0.0
+      });
     }
 
     function collapseObjectToMesh(root) {
@@ -219,12 +332,7 @@
           const geometry = child.geometry.clone();
           geometry.computeVertexNormals();
 
-          const material = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            roughness: 0.9,
-            metalness: 0.0
-          });
-
+          const material = makeMaterial();
           const mesh = new THREE.Mesh(geometry, material);
           mesh.position.copy(child.position);
           mesh.rotation.copy(child.rotation);
@@ -267,9 +375,7 @@
     }
 
     async function main() {
-      if (!displayCtx) {
-        throw new Error('2D canvas не создался.');
-      }
+      if (!displayCtx) throw new Error('2D canvas не создался.');
 
       setStatus('Загружаю OBJ…');
       const objText = await loadObjText(config.obj);
@@ -292,6 +398,7 @@
         preserveDrawingBuffer: true
       });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
@@ -307,13 +414,10 @@
 
       const trailCanvas = document.createElement('canvas');
       const trailCtx = trailCanvas.getContext('2d', { willReadFrequently: true });
-
       const bufferCanvas = document.createElement('canvas');
       const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
 
-      if (!trailCtx || !bufferCtx) {
-        throw new Error('Вспомогательные canvas не создались.');
-      }
+      if (!trailCtx || !bufferCtx) throw new Error('Вспомогательные canvas не создались.');
 
       const mouse = new THREE.Vector2(0.5, 0.5);
       let width = 1;
@@ -343,13 +447,11 @@
 
       function updateLightPosition() {
         const angle = config.lightRotation;
-
         light.position.set(
           Math.cos(angle) * config.lightDistance,
           config.lightHeight,
           Math.sin(angle) * config.lightDistance
         );
-
         light.target.position.set(0, 0, 0);
         light.target.updateMatrixWorld();
       }
@@ -385,7 +487,6 @@
           for (let gx = 0; gx < cols; gx++) {
             const baseX = gx * cell;
             const baseY = gy * cell;
-
             grid[gy * cols + gx] = {
               baseX,
               baseY,
@@ -408,12 +509,10 @@
 
         const x = mouse.x * width;
         const y = mouse.y * height;
-
         const grad = trailCtx.createRadialGradient(
           x, y, 0,
           x, y, Math.max(40, width * 0.12 * config.trail + 20)
         );
-
         grad.addColorStop(0, `rgba(255,255,255,${0.28 + config.trail * 0.45})`);
         grad.addColorStop(1, 'rgba(255,255,255,0)');
 
@@ -433,7 +532,6 @@
         for (let gy = 0; gy < rows; gy++) {
           for (let gx = 0; gx < cols; gx++) {
             const node = grid[gy * cols + gx];
-
             const px = Math.min(width - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
             const py = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
             const idx = (py * width + px) * 4;
@@ -444,7 +542,6 @@
             const a = baseData[idx + 3] / 255;
 
             const rawBrightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
-
             node.brightness = rawBrightness;
             node.active = rawBrightness > 0.03;
           }
@@ -472,7 +569,6 @@
         const mouseY = mouse.y * height;
         const radius = config.radius;
         const radiusSq = radius * radius;
-
         const pointerVX = state.lastPointerDX || 0;
         const pointerVY = state.lastPointerDY || 0;
 
@@ -525,7 +621,6 @@
 
           node.x += node.vx;
           node.y += node.vy;
-
           node.glow *= 0.92;
         }
       }
@@ -535,7 +630,6 @@
         const trailData = trailCtx.getImageData(0, 0, width, height).data;
 
         displayCtx.clearRect(0, 0, width, height);
-
         if (!config.transparent) {
           displayCtx.fillStyle = config.bg;
           displayCtx.fillRect(0, 0, width, height);
@@ -545,6 +639,8 @@
         const chars = config.charset || ' .:-=+*#%@';
         displayCtx.font = `${Math.floor(cell * 1.02)}px monospace`;
         displayCtx.textBaseline = 'top';
+
+        const fallbackRgb = hexToRgb(config.color);
 
         for (let gy = 0; gy < rows; gy++) {
           for (let gx = 0; gx < cols; gx++) {
@@ -575,12 +671,21 @@
 
             const charIndex = Math.min(chars.length - 1, Math.floor(brightness * (chars.length - 1)));
             const char = chars[charIndex];
+            if (char === ' ' || brightness <= 0.01) continue;
 
-            if (char !== ' ' && brightness > 0.01) {
-              const alpha = Math.min(1, 0.18 + brightness * 0.95 + node.glow * 0.35);
+            const alpha = Math.min(1, 0.18 + brightness * 0.95 + node.glow * 0.35);
+
+            if (config.colorizeGlyphs) {
+              const sat = applySaturation(r, g, b, config.saturation);
+              const mixedR = fallbackRgb.r + (sat.r - fallbackRgb.r) * config.colorStrength;
+              const mixedG = fallbackRgb.g + (sat.g - fallbackRgb.g) * config.colorStrength;
+              const mixedB = fallbackRgb.b + (sat.b - fallbackRgb.b) * config.colorStrength;
+              displayCtx.fillStyle = rgbaString(mixedR, mixedG, mixedB, alpha);
+            } else {
               displayCtx.fillStyle = colorWithAlpha(config.color, alpha);
-              displayCtx.fillText(char, node.x, node.y);
             }
+
+            displayCtx.fillText(char, node.x, node.y);
           }
         }
       }
@@ -601,10 +706,7 @@
         const x = (event.clientX - rect.left) / rect.width;
         const y = (event.clientY - rect.top) / rect.height;
 
-        mouse.set(
-          Math.min(1, Math.max(0, x)),
-          Math.min(1, Math.max(0, y))
-        );
+        mouse.set(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)));
 
         const dx = event.clientX - state.lastPointerX;
         const dy = event.clientY - state.lastPointerY;
