@@ -173,7 +173,7 @@
   <div class="app">
     <div class="card">
       <h1>Embed Builder</h1>
-      <div class="sub">Настраивай viewer, смотри preview и копируй готовый iframe для Tilda.</div>
+      <div class="sub">Настраивай viewer, смотри preview и копируй iframe для Tilda.</div>
 
       <div class="controls">
         <div class="field">
@@ -198,6 +198,14 @@
         </div>
 
         <div class="field">
+          <label for="matcapSource">Matcap source</label>
+          <select id="matcapSource">
+            <option value="preset">Preset</option>
+            <option value="url">Custom URL</option>
+          </select>
+        </div>
+
+        <div class="field">
           <label for="matcapPreset">Matcap preset</label>
           <select id="matcapPreset">
             <option value="iridescent">Iridescent</option>
@@ -206,6 +214,11 @@
             <option value="clay">Clay</option>
             <option value="neon">Neon</option>
           </select>
+        </div>
+
+        <div class="field">
+          <label for="matcapUrl">Custom matcap URL</label>
+          <input id="matcapUrl" type="text" placeholder="./matcaps/custom.png или https://..." value="" />
         </div>
 
         <label class="check"><input id="colorizeGlyphs" type="checkbox" checked /> Colorize glyphs</label>
@@ -459,7 +472,7 @@
         </div>
 
         <div id="status" class="status"></div>
-        <div class="hint">Для цветных glyph включи Colorize glyphs. Для matcap-рендера лучше всего presets: Iridescent или Chrome.</div>
+        <div class="hint">Для своего matcap выбери “Custom URL” и укажи, например, <code>./matcaps/custom.png</code>.</div>
       </div>
     </div>
 
@@ -482,7 +495,9 @@
       objPath: document.getElementById('objPath'),
 
       materialMode: document.getElementById('materialMode'),
+      matcapSource: document.getElementById('matcapSource'),
       matcapPreset: document.getElementById('matcapPreset'),
+      matcapUrl: document.getElementById('matcapUrl'),
       colorizeGlyphs: document.getElementById('colorizeGlyphs'),
       colorStrength: document.getElementById('colorStrength'),
       saturation: document.getElementById('saturation'),
@@ -577,7 +592,9 @@
       url.searchParams.set('obj', ids.objPath.value.trim() || './model.obj');
 
       url.searchParams.set('materialMode', ids.materialMode.value);
+      url.searchParams.set('matcapSource', ids.matcapSource.value);
       url.searchParams.set('matcapPreset', ids.matcapPreset.value);
+      url.searchParams.set('matcapUrl', ids.matcapUrl.value.trim());
       url.searchParams.set('colorizeGlyphs', String(ids.colorizeGlyphs.checked));
       url.searchParams.set('colorStrength', (Number(ids.colorStrength.value) / 100).toFixed(2));
       url.searchParams.set('saturation', (Number(ids.saturation.value) / 100).toFixed(2));
@@ -671,12 +688,18 @@
       });
     }
 
-    ['viewerUrl', 'objPath', 'charset', 'bg', 'color', 'materialMode', 'matcapPreset'].forEach((key) => {
+    [
+      'viewerUrl', 'objPath', 'charset', 'bg', 'color',
+      'materialMode', 'matcapSource', 'matcapPreset', 'matcapUrl'
+    ].forEach((key) => {
       ids[key].addEventListener('input', refresh);
       ids[key].addEventListener('change', refresh);
     });
 
-    ['colorizeGlyphs', 'mouseTrail', 'cursorGlow', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
+    [
+      'colorizeGlyphs', 'mouseTrail', 'cursorGlow', 'transparent', 'hud',
+      'autoRotate', 'mouseRotate', 'dragPan'
+    ].forEach((key) => {
       ids[key].addEventListener('change', refresh);
     });
 
