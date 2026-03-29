@@ -69,10 +69,10 @@
       font-size: 13px;
       color: var(--muted);
     }
-    input[type="text"], input[type="color"], input[type="range"], textarea, button {
+    input[type="text"], input[type="color"], input[type="range"], textarea, button, select {
       width: 100%;
     }
-    input[type="text"], textarea {
+    input[type="text"], textarea, select {
       background: var(--panel2);
       border: 1px solid var(--border);
       color: var(--text);
@@ -186,6 +186,46 @@
           <input id="objPath" type="text" value="./model.obj" />
         </div>
 
+        <div class="groupTitle">Material / Color</div>
+
+        <div class="field">
+          <label for="materialMode">Material mode</label>
+          <select id="materialMode">
+            <option value="matcap">Matcap</option>
+            <option value="standard">Standard</option>
+            <option value="normal">Normal</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="matcapPreset">Matcap preset</label>
+          <select id="matcapPreset">
+            <option value="iridescent">Iridescent</option>
+            <option value="chrome">Chrome</option>
+            <option value="silver">Silver</option>
+            <option value="clay">Clay</option>
+            <option value="neon">Neon</option>
+          </select>
+        </div>
+
+        <label class="check"><input id="colorizeGlyphs" type="checkbox" checked /> Colorize glyphs</label>
+
+        <div class="field">
+          <label>Color strength</label>
+          <div class="row">
+            <input id="colorStrength" type="range" min="0" max="200" value="100" />
+            <div id="colorStrengthVal" class="num">1.00</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Saturation</label>
+          <div class="row">
+            <input id="saturation" type="range" min="0" max="200" value="100" />
+            <div id="saturationVal" class="num">1.00</div>
+          </div>
+        </div>
+
         <div class="groupTitle">Glyph / Repel</div>
 
         <div class="field">
@@ -207,8 +247,8 @@
         <div class="field">
           <label>Force</label>
           <div class="row">
-            <input id="force" type="range" min="0" max="500" value="130" />
-            <div id="forceVal" class="num">1.30</div>
+            <input id="force" type="range" min="0" max="500" value="75" />
+            <div id="forceVal" class="num">0.75</div>
           </div>
         </div>
 
@@ -223,24 +263,24 @@
         <div class="field">
           <label>Return</label>
           <div class="row">
-            <input id="returnStrength" type="range" min="1" max="50" value="12" />
-            <div id="returnVal" class="num">0.12</div>
+            <input id="returnStrength" type="range" min="1" max="50" value="18" />
+            <div id="returnVal" class="num">0.18</div>
           </div>
         </div>
 
         <div class="field">
           <label>Swirl</label>
           <div class="row">
-            <input id="swirl" type="range" min="0" max="300" value="35" />
-            <div id="swirlVal" class="num">0.35</div>
+            <input id="swirl" type="range" min="0" max="300" value="3" />
+            <div id="swirlVal" class="num">0.03</div>
           </div>
         </div>
 
         <div class="field">
           <label>Trail glow size</label>
           <div class="row">
-            <input id="trail" type="range" min="0" max="200" value="10" />
-            <div id="trailVal" class="num">0.10</div>
+            <input id="trail" type="range" min="0" max="200" value="4" />
+            <div id="trailVal" class="num">0.04</div>
           </div>
         </div>
 
@@ -337,7 +377,7 @@
           </div>
         </div>
 
-        <div class="groupTitle">Light</div>
+        <div class="groupTitle">Light / Shadow</div>
 
         <div class="field">
           <label>Light rotation</label>
@@ -403,7 +443,7 @@
         </div>
 
         <div class="field">
-          <label for="color">Glyph color</label>
+          <label for="color">Fallback glyph color</label>
           <input id="color" type="color" value="#ffffff" />
         </div>
 
@@ -419,7 +459,7 @@
         </div>
 
         <div id="status" class="status"></div>
-        <div class="hint">Если не нужен круг за курсором — оставь Mouse trail / repel включённым, а Cursor glow выключенным.</div>
+        <div class="hint">Для цветных glyph включи Colorize glyphs. Для matcap-рендера лучше всего presets: Iridescent или Chrome.</div>
       </div>
     </div>
 
@@ -440,6 +480,12 @@
     const ids = {
       viewerUrl: document.getElementById('viewerUrl'),
       objPath: document.getElementById('objPath'),
+
+      materialMode: document.getElementById('materialMode'),
+      matcapPreset: document.getElementById('matcapPreset'),
+      colorizeGlyphs: document.getElementById('colorizeGlyphs'),
+      colorStrength: document.getElementById('colorStrength'),
+      saturation: document.getElementById('saturation'),
 
       cell: document.getElementById('cell'),
       contrast: document.getElementById('contrast'),
@@ -486,6 +532,9 @@
     };
 
     const pairs = [
+      ['colorStrength', 'colorStrengthVal', (v) => (Number(v) / 100).toFixed(2)],
+      ['saturation', 'saturationVal', (v) => (Number(v) / 100).toFixed(2)],
+
       ['cell', 'cellVal', (v) => v],
       ['contrast', 'contrastVal', (v) => (Number(v) / 100).toFixed(2)],
       ['force', 'forceVal', (v) => (Number(v) / 100).toFixed(2)],
@@ -526,6 +575,12 @@
       const url = new URL(base, window.location.href);
 
       url.searchParams.set('obj', ids.objPath.value.trim() || './model.obj');
+
+      url.searchParams.set('materialMode', ids.materialMode.value);
+      url.searchParams.set('matcapPreset', ids.matcapPreset.value);
+      url.searchParams.set('colorizeGlyphs', String(ids.colorizeGlyphs.checked));
+      url.searchParams.set('colorStrength', (Number(ids.colorStrength.value) / 100).toFixed(2));
+      url.searchParams.set('saturation', (Number(ids.saturation.value) / 100).toFixed(2));
 
       url.searchParams.set('cell', ids.cell.value);
       url.searchParams.set('contrast', (Number(ids.contrast.value) / 100).toFixed(2));
@@ -616,11 +671,12 @@
       });
     }
 
-    ['viewerUrl', 'objPath', 'charset', 'bg', 'color'].forEach((key) => {
+    ['viewerUrl', 'objPath', 'charset', 'bg', 'color', 'materialMode', 'matcapPreset'].forEach((key) => {
       ids[key].addEventListener('input', refresh);
+      ids[key].addEventListener('change', refresh);
     });
 
-    ['mouseTrail', 'cursorGlow', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
+    ['colorizeGlyphs', 'mouseTrail', 'cursorGlow', 'transparent', 'hud', 'autoRotate', 'mouseRotate', 'dragPan'].forEach((key) => {
       ids[key].addEventListener('change', refresh);
     });
 
