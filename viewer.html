@@ -27,13 +27,19 @@
   cursor: default;
 }
 
-    #webgl, #display {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
+    #webgl,
+#display {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#webgl {
+  opacity: 0;
+  pointer-events: none;
+}
 
     #overlay {
       position: fixed;
