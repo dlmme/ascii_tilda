@@ -14,16 +14,18 @@
       font-family: Inter, Arial, sans-serif;
     }
 
-    #mount {
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-      background: transparent;
-      touch-action: none;
-      cursor: grab;
-    }
+#mount {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+  touch-action: none;
+  cursor: default;
+}
 
-    #mount.dragging { cursor: grabbing; }
+#mount.dragging {
+  cursor: default;
+}
 
     #webgl, #display {
       position: absolute;
