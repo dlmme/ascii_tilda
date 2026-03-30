@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OBJ Glyph Dither Viewer</title>
   <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #05070a;
-      font-family: Inter, Arial, sans-serif;
-    }
+ html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: Inter, Arial, sans-serif;
+}
 
 #mount {
   position: fixed;
@@ -417,7 +417,7 @@
         canvas: webglCanvas,
         antialias: true,
         alpha: true,
-        preserveDrawingBuffer: true
+        preserveingBuffer: true
       });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -543,7 +543,7 @@
 
       function updateModelMask() {
         bufferCtx.clearRect(0, 0, width, height);
-        bufferCtx.drawImage(webglCanvas, 0, 0, width, height);
+        bufferCtx.Image(webglCanvas, 0, 0, width, height);
         const baseData = bufferCtx.getImageData(0, 0, width, height).data;
 
         const cell = Math.max(4, config.cell);
