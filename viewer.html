@@ -543,7 +543,7 @@
 
       function updateModelMask() {
         bufferCtx.clearRect(0, 0, width, height);
-        bufferCtx.Image(webglCanvas, 0, 0, width, height);
+        bufferCtx.drawImage(webglCanvas, 0, 0, width, height);
         const baseData = bufferCtx.getImageData(0, 0, width, height).data;
 
         const cell = Math.max(4, config.cell);
