@@ -117,12 +117,6 @@
     const metaPill = document.getElementById('metaPill');
     const errorBox = document.getElementById('errorBox');
 
-    // ── Retina / HiDPI fix ──────────────────────────────────────────────────
-    // dpr is the physical-to-CSS pixel ratio (2 on most Macs, 1 on Windows).
-    // We keep CSS dimensions (width/height) for layout and the glyph grid,
-    // and use physW/physH only when touching the raw WebGL pixel buffer.
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-
     function clampNumber(value, min, max, fallback) {
       const n = Number(value);
       if (!Number.isFinite(n)) return fallback;
@@ -420,15 +414,18 @@
 
       const model = normalizeObject(meshGroup);
 
+      // ── KEY FIX ──────────────────────────────────────────────────────────
+      // We render at pixelRatio=1 (CSS pixels) so that webglCanvas.width and
+      // webglCanvas.height always equal the CSS layout dimensions.
+      // This means bufferCanvas can copy the WebGL output with drawImage
+      // and address every pixel with plain CSS-pixel coordinates — no dpr
+      // multiplication needed anywhere, and no Retina clipping on Mac.
       const renderer = new THREE.WebGLRenderer({
         canvas: webglCanvas,
         antialias: true,
         alpha: true,
         preserveDrawingBuffer: true
       });
-      // Do NOT call setPixelRatio here — we manage the physical canvas size
-      // ourselves so that bufferCanvas can read back at exactly the same
-      // resolution without any dpr mismatch.
       renderer.setPixelRatio(1);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -454,11 +451,8 @@
       }
 
       const mouse = new THREE.Vector2(0.5, 0.5);
-
-      // CSS dimensions (what the browser lays out, what the glyph grid uses)
       let width = 1;
       let height = 1;
-
       let raf = 0;
       let grid = [];
       let cols = 0;
@@ -493,35 +487,28 @@
 
       function resize() {
         const rect = mount.getBoundingClientRect();
-        // CSS / logical pixels — used for the glyph grid, mouse coords, display canvas
         width  = Math.max(320, Math.floor(rect.width));
         height = Math.max(320, Math.floor(rect.height));
 
-        // Physical pixels — used for the WebGL renderer and the buffer canvas
-        // that reads back the WebGL output.
-        const physW = Math.round(width  * dpr);
-        const physH = Math.round(height * dpr);
+        // renderer.setPixelRatio(1) means Three.js sets canvas.width = width,
+        // canvas.height = height — exactly matching CSS layout pixels.
+        // We pass updateStyle=false so Three.js doesn't override our CSS.
+        renderer.setSize(width, height, false);
 
-        // WebGL canvas: physical size, CSS size via style
-        webglCanvas.width  = physW;
-        webglCanvas.height = physH;
-        webglCanvas.style.width  = width  + 'px';
-        webglCanvas.style.height = height + 'px';
-        renderer.setSize(physW, physH, false);
+        // Explicitly pin the CSS size so the canvas stretches to fill the
+        // viewport regardless of its internal pixel dimensions.
+        webglCanvas.style.width  = '100%';
+        webglCanvas.style.height = '100%';
 
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
 
-        // Display / trail canvases: CSS pixels only (no dpr scaling needed here)
         displayCanvas.width  = width;
         displayCanvas.height = height;
-        trailCanvas.width  = width;
-        trailCanvas.height = height;
-
-        // Buffer canvas reads back the WebGL canvas pixel-for-pixel,
-        // so it must match the physical size.
-        bufferCanvas.width  = physW;
-        bufferCanvas.height = physH;
+        trailCanvas.width    = width;
+        trailCanvas.height   = height;
+        bufferCanvas.width   = width;
+        bufferCanvas.height  = height;
 
         rebuildGrid();
       }
@@ -571,27 +558,21 @@
       }
 
       function updateModelMask() {
-        // Draw the WebGL canvas (physical pixels) into bufferCanvas (also physical pixels).
-        // This is a straight 1-to-1 copy — no scaling needed.
-        bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-        bufferCtx.drawImage(webglCanvas, 0, 0);
-        const baseData = bufferCtx.getImageData(0, 0, bufferCanvas.width, bufferCanvas.height).data;
+        // Both webglCanvas and bufferCanvas are exactly width×height (CSS pixels).
+        // drawImage(webglCanvas, 0, 0, width, height) scales to fill bufferCanvas
+        // which is also width×height — so it's a 1:1 pixel copy.
+        bufferCtx.clearRect(0, 0, width, height);
+        bufferCtx.drawImage(webglCanvas, 0, 0, width, height);
+        const baseData = bufferCtx.getImageData(0, 0, width, height).data;
 
         const cell = Math.max(4, config.cell);
 
         for (let gy = 0; gy < rows; gy++) {
           for (let gx = 0; gx < cols; gx++) {
             const node = grid[gy * cols + gx];
-
-            // Sample at the centre of the glyph cell.
-            // The glyph grid works in CSS pixels; multiply by dpr to get
-            // the correct physical pixel address inside baseData.
-            const cssPx = Math.min(width  - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
-            const cssPy = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
-            const physPx = Math.min(bufferCanvas.width  - 1, Math.round(cssPx * dpr));
-            const physPy = Math.min(bufferCanvas.height - 1, Math.round(cssPy * dpr));
-
-            const idx = (physPy * bufferCanvas.width + physPx) * 4;
+            const px = Math.min(width - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
+            const py = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
+            const idx = (py * width + px) * 4;
 
             const r = baseData[idx];
             const g = baseData[idx + 1];
@@ -606,10 +587,6 @@
 
         return baseData;
       }
-
-      // drawAscii needs to sample the same physical pixel buffer.
-      // We keep a reference to the last baseData returned by updateModelMask.
-      let lastBaseData = null;
 
       function updateGridPhysics() {
         if (!config.mouseTrail) {
@@ -688,7 +665,6 @@
 
       function drawAscii() {
         const baseData = updateModelMask();
-        lastBaseData = baseData;
         const trailData = trailCtx.getImageData(0, 0, width, height).data;
 
         displayCtx.clearRect(0, 0, width, height);
@@ -709,21 +685,15 @@
             const node = grid[gy * cols + gx];
             if (!node.active) continue;
 
-            // Same dpr-aware sampling as in updateModelMask
-            const cssPx = Math.min(width  - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
-            const cssPy = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
-            const physPx = Math.min(bufferCanvas.width  - 1, Math.round(cssPx * dpr));
-            const physPy = Math.min(bufferCanvas.height - 1, Math.round(cssPy * dpr));
-            const idx = (physPy * bufferCanvas.width + physPx) * 4;
-
-            // Trail data is still in CSS-pixel space (trailCanvas is CSS-sized)
-            const trailIdx = (cssPy * width + cssPx) * 4;
+            const px = Math.min(width - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
+            const py = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
+            const idx = (py * width + px) * 4;
 
             const r = baseData[idx];
             const g = baseData[idx + 1];
             const b = baseData[idx + 2];
             const a = baseData[idx + 3] / 255;
-            const tr = config.cursorGlow ? trailData[trailIdx] / 255 : 0;
+            const tr = config.cursorGlow ? trailData[idx] / 255 : 0;
 
             let brightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
             brightness = Math.pow(Math.max(0, brightness), config.shadowPower);
