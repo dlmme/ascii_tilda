@@ -260,9 +260,12 @@
       let glBuf = null; // Uint8Array, allocated in resize()
 
       const mouse = new THREE.Vector2(0.5, 0.5);
-      let cssW = 1, cssH = 1; // CSS / logical dimensions
-      let physW = 1, physH = 1; // physical WebGL canvas dimensions
-      let raf = 0, grid = [], cols = 0, rows = 0;
+let width = 1;
+let height = 1;
+let raf = 0;
+let grid = [];
+let cols = 0;
+let rows = 0;
 
       const st = {
         dragging:false, lpx:0, lpy:0, ldx:0, ldy:0,
