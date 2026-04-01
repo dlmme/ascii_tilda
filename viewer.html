@@ -36,8 +36,8 @@
       display: block;
     }
     #webgl {
-      opacity: 0 !important;
-      pointer-events: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
     }
 
     #overlay {
@@ -414,19 +414,13 @@
 
       const model = normalizeObject(meshGroup);
 
-      // ── KEY FIX ──────────────────────────────────────────────────────────
-      // We render at pixelRatio=1 (CSS pixels) so that webglCanvas.width and
-      // webglCanvas.height always equal the CSS layout dimensions.
-      // This means bufferCanvas can copy the WebGL output with drawImage
-      // and address every pixel with plain CSS-pixel coordinates — no dpr
-      // multiplication needed anywhere, and no Retina clipping on Mac.
       const renderer = new THREE.WebGLRenderer({
         canvas: webglCanvas,
         antialias: true,
         alpha: true,
         preserveDrawingBuffer: true
       });
-      renderer.setPixelRatio(1);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
 
       const scene = new THREE.Scene();
@@ -487,28 +481,21 @@
 
       function resize() {
         const rect = mount.getBoundingClientRect();
-        width  = Math.max(320, Math.floor(rect.width));
+        width = Math.max(320, Math.floor(rect.width));
         height = Math.max(320, Math.floor(rect.height));
 
-        // renderer.setPixelRatio(1) means Three.js sets canvas.width = width,
-        // canvas.height = height — exactly matching CSS layout pixels.
-        // We pass updateStyle=false so Three.js doesn't override our CSS.
         renderer.setSize(width, height, false);
-
-        // Explicitly pin the CSS size so the canvas stretches to fill the
-        // viewport regardless of its internal pixel dimensions.
-        webglCanvas.style.width  = '100%';
-        webglCanvas.style.height = '100%';
-
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
 
-        displayCanvas.width  = width;
+        webglCanvas.width = width;
+        webglCanvas.height = height;
+        displayCanvas.width = width;
         displayCanvas.height = height;
-        trailCanvas.width    = width;
-        trailCanvas.height   = height;
-        bufferCanvas.width   = width;
-        bufferCanvas.height  = height;
+        trailCanvas.width = width;
+        trailCanvas.height = height;
+        bufferCanvas.width = width;
+        bufferCanvas.height = height;
 
         rebuildGrid();
       }
@@ -558,9 +545,6 @@
       }
 
       function updateModelMask() {
-        // Both webglCanvas and bufferCanvas are exactly width×height (CSS pixels).
-        // drawImage(webglCanvas, 0, 0, width, height) scales to fill bufferCanvas
-        // which is also width×height — so it's a 1:1 pixel copy.
         bufferCtx.clearRect(0, 0, width, height);
         bufferCtx.drawImage(webglCanvas, 0, 0, width, height);
         const baseData = bufferCtx.getImageData(0, 0, width, height).data;
