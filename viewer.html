@@ -15,7 +15,7 @@
     }
 
     #mount {
-      position: fixed;
+      position: absolute;
       inset: 0;
       overflow: hidden;
       background: transparent;
@@ -487,9 +487,8 @@
       }
 
       function resize() {
-        const rect = mount.getBoundingClientRect();
-        width = Math.max(320, Math.floor(rect.width));
-        height = Math.max(320, Math.floor(rect.height));
+        width = Math.max(320, mount.clientWidth || window.innerWidth || 320);
+        height = Math.max(320, mount.clientHeight || window.innerHeight || 320);
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -504,18 +503,22 @@
         displayCanvas.style.width = width + 'px';
         displayCanvas.style.height = height + 'px';
 
-        webglCanvas.width = Math.floor(width * dpr);
-        webglCanvas.height = Math.floor(height * dpr);
-        displayCanvas.width = Math.floor(width * dpr);
-        displayCanvas.height = Math.floor(height * dpr);
-        trailCanvas.width = Math.floor(width * dpr);
-        trailCanvas.height = Math.floor(height * dpr);
-        bufferCanvas.width = Math.floor(width * dpr);
-        bufferCanvas.height = Math.floor(height * dpr);
+        webglCanvas.width = Math.round(width * dpr);
+        webglCanvas.height = Math.round(height * dpr);
+        displayCanvas.width = Math.round(width * dpr);
+        displayCanvas.height = Math.round(height * dpr);
+        trailCanvas.width = Math.round(width * dpr);
+        trailCanvas.height = Math.round(height * dpr);
+        bufferCanvas.width = Math.round(width * dpr);
+        bufferCanvas.height = Math.round(height * dpr);
 
-        displayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        bufferCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+        trailCtx.setTransform(1, 0, 0, 1, 0, 0);
+        bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+        displayCtx.scale(dpr, dpr);
+        trailCtx.scale(dpr, dpr);
+        bufferCtx.scale(dpr, dpr);
 
         rebuildGrid();
       }
@@ -825,13 +828,18 @@
       displayCanvas.addEventListener('pointerup', onPointerUp);
       displayCanvas.addEventListener('pointercancel', onPointerUp);
       displayCanvas.addEventListener('pointerleave', onLeave);
+
       window.addEventListener('resize', resize);
+
+      const ro = new ResizeObserver(() => resize());
+      ro.observe(mount);
 
       tick();
       setStatus('Готово');
 
       window.addEventListener('beforeunload', () => {
         cancelAnimationFrame(raf);
+        ro.disconnect();
         renderer.dispose();
       });
     }
