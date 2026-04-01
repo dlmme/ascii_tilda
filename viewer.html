@@ -276,26 +276,43 @@
       }
 
       function resize() {
-        const rect = mount.getBoundingClientRect();
-        cssW  = Math.max(320, Math.floor(rect.width));
-        cssH  = Math.max(320, Math.floor(rect.height));
+  const rect = mount.getBoundingClientRect();
+  width = Math.max(320, Math.floor(rect.width));
+  height = Math.max(320, Math.floor(rect.height));
 
-        renderer.setSize(cssW, cssH); // Three.js scales internally by dpr
-        // After setSize the canvas physical dimensions are:
-        physW = webglCanvas.width;
-        physH = webglCanvas.height;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-        // Allocate readback buffer for one full frame of physical pixels (RGBA)
-        glBuf = new Uint8Array(physW * physH * 4);
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(width, height, false);
 
-        camera.aspect = cssW / cssH;
-        camera.updateProjectionMatrix();
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
 
-        displayCanvas.width  = cssW; displayCanvas.height = cssH;
-        trailCv.width        = cssW; trailCv.height       = cssH;
+  webglCanvas.style.width = width + 'px';
+  webglCanvas.style.height = height + 'px';
+  displayCanvas.style.width = width + 'px';
+  displayCanvas.style.height = height + 'px';
 
-        rebuildGrid();
-      }
+  trailCanvas.style.width = width + 'px';
+  trailCanvas.style.height = height + 'px';
+  bufferCanvas.style.width = width + 'px';
+  bufferCanvas.style.height = height + 'px';
+
+  webglCanvas.width = Math.floor(width * dpr);
+  webglCanvas.height = Math.floor(height * dpr);
+  displayCanvas.width = Math.floor(width * dpr);
+  displayCanvas.height = Math.floor(height * dpr);
+  trailCanvas.width = Math.floor(width * dpr);
+  trailCanvas.height = Math.floor(height * dpr);
+  bufferCanvas.width = Math.floor(width * dpr);
+  bufferCanvas.height = Math.floor(height * dpr);
+
+  displayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  bufferCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  rebuildGrid();
+}
 
       function rebuildGrid() {
         const cell = Math.max(4, cfg.cell);
