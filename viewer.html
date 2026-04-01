@@ -13,7 +13,6 @@
       background: transparent;
       font-family: Inter, Arial, sans-serif;
     }
-
     #mount {
       position: fixed;
       inset: 0;
@@ -22,13 +21,8 @@
       touch-action: none;
       cursor: auto;
     }
-
-    #mount.dragging {
-      cursor: auto;
-    }
-
-    #webgl,
-    #display {
+    #mount.dragging { cursor: auto; }
+    #webgl, #display {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -36,10 +30,9 @@
       display: block;
     }
     #webgl {
-    opacity: 0 !important;
-    pointer-events: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
-
     #overlay {
       position: fixed;
       top: 14px;
@@ -52,7 +45,6 @@
       max-width: min(92vw, 1200px);
       pointer-events: none;
     }
-
     .pill {
       padding: 8px 12px;
       border-radius: 999px;
@@ -63,11 +55,7 @@
       font-size: 12px;
       line-height: 1;
     }
-
-    .hidden {
-      display: none !important;
-    }
-
+    .hidden { display: none !important; }
     #errorBox {
       position: fixed;
       inset: auto 16px 16px 16px;
@@ -83,13 +71,8 @@
       backdrop-filter: blur(10px);
     }
   </style>
-
   <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-      }
-    }
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
   </script>
 </head>
 <body>
@@ -97,698 +80,379 @@
     <canvas id="webgl"></canvas>
     <canvas id="display"></canvas>
   </div>
-
   <div id="overlay">
     <div id="statusPill" class="pill">Загрузка…</div>
-    <div id="metaPill" class="pill">OBJ Glyph Dither</div>
+    <div id="metaPill"  class="pill">OBJ Glyph Dither</div>
   </div>
-
   <div id="errorBox" class="hidden"></div>
 
   <script type="module">
     import * as THREE from 'three';
     import { OBJLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/OBJLoader.js';
 
-    const mount = document.getElementById('mount');
+    const mount       = document.getElementById('mount');
     const webglCanvas = document.getElementById('webgl');
     const displayCanvas = document.getElementById('display');
-    const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true });
-    const statusPill = document.getElementById('statusPill');
-    const metaPill = document.getElementById('metaPill');
-    const errorBox = document.getElementById('errorBox');
+    const displayCtx  = displayCanvas.getContext('2d', { willReadFrequently: true });
+    const statusPill  = document.getElementById('statusPill');
+    const metaPill    = document.getElementById('metaPill');
+    const errorBox    = document.getElementById('errorBox');
 
-    function clampNumber(value, min, max, fallback) {
-      const n = Number(value);
-      if (!Number.isFinite(n)) return fallback;
-      return Math.min(max, Math.max(min, n));
-    }
+    /* ── helpers ─────────────────────────────────────────────────────────── */
+    const clampN = (v, lo, hi, fb) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fb; };
+    const bool   = (v, fb) => v == null ? fb : (v === '1' || v === 'true' || v === 'yes');
 
-    function parseBool(value, fallback) {
-      if (value == null) return fallback;
-      return value === '1' || value === 'true' || value === 'yes';
-    }
+    function showError(msg) { errorBox.textContent = msg; errorBox.classList.remove('hidden'); statusPill.textContent = 'Ошибка'; }
+    function setStatus(msg) { statusPill.textContent = msg; }
 
-    function showError(message) {
-      errorBox.textContent = message;
-      errorBox.classList.remove('hidden');
-      statusPill.textContent = 'Ошибка';
-    }
-
-    function setStatus(message) {
-      statusPill.textContent = message;
-    }
-
-    function resolveUrl(path) {
-      try {
-        return new URL(path, window.location.href).toString();
-      } catch {
-        return path;
-      }
-    }
+    function resolveUrl(p) { try { return new URL(p, location.href).toString(); } catch { return p; } }
 
     function hexToRgb(hex) {
-      const clean = (hex || '#ffffff').replace('#', '');
-      const full = clean.length === 3
-        ? clean.split('').map((c) => c + c).join('')
-        : clean.padEnd(6, 'f').slice(0, 6);
-      return {
-        r: parseInt(full.slice(0, 2), 16),
-        g: parseInt(full.slice(2, 4), 16),
-        b: parseInt(full.slice(4, 6), 16)
-      };
+      const c = (hex || '#fff').replace('#', '');
+      const f = c.length === 3 ? c.split('').map(x => x+x).join('') : c.padEnd(6,'f').slice(0,6);
+      return { r: parseInt(f.slice(0,2),16), g: parseInt(f.slice(2,4),16), b: parseInt(f.slice(4,6),16) };
+    }
+    const colorAlpha = (hex, a) => { const {r,g,b} = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; };
+    const rgbaStr    = (r,g,b,a) => `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a})`;
+    function satApply(r,g,b,s) {
+      const L = 0.2126*r + 0.7152*g + 0.0722*b;
+      return { r: L+(r-L)*s, g: L+(g-L)*s, b: L+(b-L)*s };
     }
 
-    function colorWithAlpha(hex, alpha) {
-      const { r, g, b } = hexToRgb(hex);
-      return `rgba(${r},${g},${b},${alpha})`;
-    }
-
-    function rgbaString(r, g, b, a) {
-      return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a})`;
-    }
-
-    function applySaturation(r, g, b, saturation) {
-      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      return {
-        r: luma + (r - luma) * saturation,
-        g: luma + (g - luma) * saturation,
-        b: luma + (b - luma) * saturation
-      };
-    }
-
-    const params = new URLSearchParams(window.location.search);
-
-    const config = {
-      obj: params.get('obj') || './model.obj',
-
-      cell: clampNumber(params.get('cell'), 4, 40, 12),
-      contrast: clampNumber(params.get('contrast'), 0.2, 3, 1.8),
-      charset: params.get('charset') || ' .,:;i1tfLCG08@',
-      color: params.get('color') || '#ffffff',
-      bg: params.get('bg') || '#05070a',
-      transparent: parseBool(params.get('transparent'), false),
-      hud: parseBool(params.get('hud'), true),
-
-      force: clampNumber(params.get('force'), 0, 5, 0.75),
-      radius: clampNumber(params.get('radius'), 20, 500, 140),
-      returnStrength: clampNumber(params.get('return'), 0.01, 0.5, 0.18),
-      swirl: clampNumber(params.get('swirl'), 0, 3, 0.03),
-
-      mouseTrail: parseBool(params.get('mouseTrail'), true),
-      cursorGlow: parseBool(params.get('cursorGlow'), false),
-      trail: clampNumber(params.get('trail'), 0, 2, 0.04),
-      decay: clampNumber(params.get('decay'), 0.75, 0.995, 0.92),
-
-      autoRotate: parseBool(params.get('autoRotate'), false),
-      rotateSpeed: clampNumber(params.get('rotateSpeed'), -0.05, 0.05, 0.004),
-      mouseRotate: parseBool(params.get('mouseRotate'), true),
-      rotateInfluenceX: clampNumber(params.get('rotateInfluenceX'), -4, 4, 1.1),
-      rotateInfluenceY: clampNumber(params.get('rotateInfluenceY'), -4, 4, 0.65),
-
-      dragPan: parseBool(params.get('dragPan'), false),
-      panStrength: clampNumber(params.get('panStrength'), 0.1, 5, 1.0),
-
-      modelX: clampNumber(params.get('modelX'), -5, 5, 0),
-      modelY: clampNumber(params.get('modelY'), -5, 5, 0),
-      modelZ: clampNumber(params.get('modelZ'), -5, 5, 0),
-      baseRotX: clampNumber(params.get('baseRotX'), -6.28, 6.28, -0.25),
-      baseRotY: clampNumber(params.get('baseRotY'), -6.28, 6.28, 0.45),
-
-      lightRotation: clampNumber(params.get('lightRotation'), -6.28, 6.28, 0.70),
-      lightHeight: clampNumber(params.get('lightHeight'), -10, 10, 4.0),
-      lightDistance: clampNumber(params.get('lightDistance'), 0.2, 20, 5.0),
-      lightIntensity: clampNumber(params.get('lightIntensity'), 0, 10, 2.2),
-      ambientIntensity: clampNumber(params.get('ambientIntensity'), 0, 2, 0.12),
-
-      shadowPower: clampNumber(params.get('shadowPower'), 0.2, 4, 1.8),
-      blackThreshold: clampNumber(params.get('blackThreshold'), 0, 1, 0.12),
-
-      materialMode: params.get('materialMode') || 'matcap',
-      matcapPreset: params.get('matcapPreset') || 'iridescent',
-      matcapSource: params.get('matcapSource') || 'preset',
-      matcapUrl: params.get('matcapUrl') || '',
-      colorizeGlyphs: parseBool(params.get('colorizeGlyphs'), true),
-      colorStrength: clampNumber(params.get('colorStrength'), 0, 2, 1.0),
-      saturation: clampNumber(params.get('saturation'), 0, 2, 1.0)
+    /* ── config ──────────────────────────────────────────────────────────── */
+    const p = new URLSearchParams(location.search);
+    const cfg = {
+      obj: p.get('obj') || './model.obj',
+      cell: clampN(p.get('cell'), 4, 40, 12),
+      charset: p.get('charset') || ' .,:;i1tfLCG08@',
+      color: p.get('color') || '#ffffff',
+      bg:    p.get('bg')    || '#05070a',
+      transparent: bool(p.get('transparent'), false),
+      hud:         bool(p.get('hud'), true),
+      force:        clampN(p.get('force'),         0,    5,    0.75),
+      radius:       clampN(p.get('radius'),        20,   500,  140),
+      returnStr:    clampN(p.get('return'),        0.01, 0.5,  0.18),
+      swirl:        clampN(p.get('swirl'),         0,    3,    0.03),
+      mouseTrail:   bool(p.get('mouseTrail'), true),
+      cursorGlow:   bool(p.get('cursorGlow'), false),
+      trail:        clampN(p.get('trail'),         0,    2,    0.04),
+      decay:        clampN(p.get('decay'),         0.75, 0.995,0.92),
+      autoRotate:   bool(p.get('autoRotate'), false),
+      rotateSpeed:  clampN(p.get('rotateSpeed'),  -0.05,0.05, 0.004),
+      mouseRotate:  bool(p.get('mouseRotate'), true),
+      rotInflX:     clampN(p.get('rotateInfluenceX'),-4, 4,   1.1),
+      rotInflY:     clampN(p.get('rotateInfluenceY'),-4, 4,   0.65),
+      dragPan:      bool(p.get('dragPan'), false),
+      panStrength:  clampN(p.get('panStrength'),  0.1,  5,    1.0),
+      modelX:       clampN(p.get('modelX'),       -5,   5,    0),
+      modelY:       clampN(p.get('modelY'),       -5,   5,    0),
+      modelZ:       clampN(p.get('modelZ'),       -5,   5,    0),
+      baseRotX:     clampN(p.get('baseRotX'),     -6.28,6.28,-0.25),
+      baseRotY:     clampN(p.get('baseRotY'),     -6.28,6.28, 0.45),
+      lightRot:     clampN(p.get('lightRotation'),-6.28,6.28, 0.70),
+      lightH:       clampN(p.get('lightHeight'),  -10,  10,   4.0),
+      lightDist:    clampN(p.get('lightDistance'), 0.2, 20,   5.0),
+      lightInt:     clampN(p.get('lightIntensity'),0,   10,   2.2),
+      ambientInt:   clampN(p.get('ambientIntensity'),0, 2,    0.12),
+      shadowPow:    clampN(p.get('shadowPower'),   0.2, 4,    1.8),
+      blackThr:     clampN(p.get('blackThreshold'),0,   1,    0.12),
+      matMode:      p.get('materialMode')  || 'matcap',
+      matPreset:    p.get('matcapPreset')  || 'iridescent',
+      matSrc:       p.get('matcapSource')  || 'preset',
+      matUrl:       p.get('matcapUrl')     || '',
+      colorize:     bool(p.get('colorizeGlyphs'), true),
+      colorStr:     clampN(p.get('colorStrength'), 0,  2,    1.0),
+      saturation:   clampN(p.get('saturation'),    0,  2,    1.0),
     };
 
-    if (!config.hud) {
-      document.getElementById('overlay').classList.add('hidden');
+    if (!cfg.hud) document.getElementById('overlay').classList.add('hidden');
+    metaPill.textContent = `${cfg.cell}px · ${cfg.matMode} · ${cfg.colorize ? 'color' : 'mono'}`;
+
+    /* ── matcap ──────────────────────────────────────────────────────────── */
+    function makeMatcap(preset) {
+      const sz = 256, cv = document.createElement('canvas');
+      cv.width = cv.height = sz;
+      const cx = cv.getContext('2d');
+      const palettes = {
+        silver:      [[0,'#fff'],[.18,'#d9dce2'],[.38,'#8e939d'],[.62,'#f2f4f7'],[.82,'#767d87'],[1,'#14171c']],
+        chrome:      [[0,'#fff'],[.12,'#e7ecf8'],[.26,'#6f7c96'],[.46,'#fefefe'],[.68,'#495872'],[.84,'#ced6e5'],[1,'#090b10']],
+        clay:        [[0,'#fff6ef'],[.18,'#f1c9b0'],[.45,'#c68468'],[.72,'#7f4a3d'],[1,'#261713']],
+        neon:        [[0,'#fff'],[.12,'#72f3ff'],[.36,'#3f7cff'],[.62,'#d14cff'],[.82,'#25164d'],[1,'#05040c']],
+        iridescent:  [[0,'#fff'],[.12,'#6de8ff'],[.28,'#4e74ff'],[.46,'#ff4fcf'],[.64,'#ff8a65'],[.82,'#5a52ff'],[1,'#090613']],
+      };
+      const stops = palettes[preset] || palettes.iridescent;
+      const g = cx.createRadialGradient(sz*.36,sz*.30,8, sz*.5,sz*.5,sz*.62);
+      stops.forEach(([pos,col]) => g.addColorStop(pos, col));
+      cx.fillStyle = g; cx.fillRect(0,0,sz,sz);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
+      return t;
     }
 
-    metaPill.textContent =
-      `${config.cell}px glyph · ${config.materialMode} · ${config.colorizeGlyphs ? 'color' : 'mono'}`;
-
-    function makeMatcapTexture(preset) {
-      const size = 256;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      let stops;
-      switch (preset) {
-        case 'silver':
-          stops = [
-            [0.00, '#ffffff'],
-            [0.18, '#d9dce2'],
-            [0.38, '#8e939d'],
-            [0.62, '#f2f4f7'],
-            [0.82, '#767d87'],
-            [1.00, '#14171c']
-          ];
-          break;
-        case 'chrome':
-          stops = [
-            [0.00, '#ffffff'],
-            [0.12, '#e7ecf8'],
-            [0.26, '#6f7c96'],
-            [0.46, '#fefefe'],
-            [0.68, '#495872'],
-            [0.84, '#ced6e5'],
-            [1.00, '#090b10']
-          ];
-          break;
-        case 'clay':
-          stops = [
-            [0.00, '#fff6ef'],
-            [0.18, '#f1c9b0'],
-            [0.45, '#c68468'],
-            [0.72, '#7f4a3d'],
-            [1.00, '#261713']
-          ];
-          break;
-        case 'neon':
-          stops = [
-            [0.00, '#ffffff'],
-            [0.12, '#72f3ff'],
-            [0.36, '#3f7cff'],
-            [0.62, '#d14cff'],
-            [0.82, '#25164d'],
-            [1.00, '#05040c']
-          ];
-          break;
-        case 'iridescent':
-        default:
-          stops = [
-            [0.00, '#ffffff'],
-            [0.12, '#6de8ff'],
-            [0.28, '#4e74ff'],
-            [0.46, '#ff4fcf'],
-            [0.64, '#ff8a65'],
-            [0.82, '#5a52ff'],
-            [1.00, '#090613']
-          ];
-          break;
+    async function loadMatcap() {
+      if (cfg.matSrc === 'url' && cfg.matUrl) {
+        const t = await new THREE.TextureLoader().loadAsync(resolveUrl(cfg.matUrl));
+        t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true; return t;
       }
-
-      const grad = ctx.createRadialGradient(size * 0.36, size * 0.30, 8, size * 0.5, size * 0.5, size * 0.62);
-      for (const [pos, color] of stops) grad.addColorStop(pos, color);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, size, size);
-
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    async function loadMatcapTexture() {
-      if (config.matcapSource === 'url' && config.matcapUrl) {
-        const loader = new THREE.TextureLoader();
-        const texture = await loader.loadAsync(resolveUrl(config.matcapUrl));
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.needsUpdate = true;
-        return texture;
-      }
-      return makeMatcapTexture(config.matcapPreset);
+      return makeMatcap(cfg.matPreset);
     }
 
     async function makeMaterial() {
-      if (config.materialMode === 'normal') {
-        return new THREE.MeshNormalMaterial();
-      }
-
-      if (config.materialMode === 'matcap') {
-        const matcap = await loadMatcapTexture();
-        return new THREE.MeshMatcapMaterial({ matcap });
-      }
-
-      return new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        roughness: 0.9,
-        metalness: 0.0
-      });
+      if (cfg.matMode === 'normal')   return new THREE.MeshNormalMaterial();
+      if (cfg.matMode === 'matcap')   return new THREE.MeshMatcapMaterial({ matcap: await loadMatcap() });
+      return new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.9, metalness:0 });
     }
 
-    async function collapseObjectToMesh(root) {
-      const group = new THREE.Group();
-      const baseMaterial = await makeMaterial();
-
-      root.traverse((child) => {
-        if (child.isMesh && child.geometry) {
-          const geometry = child.geometry.clone();
-          geometry.computeVertexNormals();
-
-          const material = baseMaterial.clone();
-          if (baseMaterial.matcap) {
-            material.matcap = baseMaterial.matcap;
-          }
-
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.copy(child.position);
-          mesh.rotation.copy(child.rotation);
-          mesh.scale.copy(child.scale);
-          group.add(mesh);
-        }
+    async function buildMeshGroup(root) {
+      const grp = new THREE.Group();
+      const base = await makeMaterial();
+      root.traverse(child => {
+        if (!child.isMesh || !child.geometry) return;
+        const geo = child.geometry.clone(); geo.computeVertexNormals();
+        const mat = base.clone(); if (base.matcap) mat.matcap = base.matcap;
+        const m = new THREE.Mesh(geo, mat);
+        m.position.copy(child.position); m.rotation.copy(child.rotation); m.scale.copy(child.scale);
+        grp.add(m);
       });
-
-      return group;
+      return grp;
     }
 
     function normalizeObject(root) {
       const box = new THREE.Box3().setFromObject(root);
-      const size = new THREE.Vector3();
-      const center = new THREE.Vector3();
-
-      box.getSize(size);
-      box.getCenter(center);
-      root.position.sub(center);
-
-      const maxDim = Math.max(size.x || 1, size.y || 1, size.z || 1);
-      const scale = 2.4 / maxDim;
-      root.scale.setScalar(scale);
-
-      root.rotation.x = config.baseRotX;
-      root.rotation.y = config.baseRotY;
-      root.position.x += config.modelX;
-      root.position.y += config.modelY;
-      root.position.z += config.modelZ;
-
+      const sz = new THREE.Vector3(), ctr = new THREE.Vector3();
+      box.getSize(sz); box.getCenter(ctr);
+      root.position.sub(ctr);
+      root.scale.setScalar(2.4 / Math.max(sz.x||1, sz.y||1, sz.z||1));
+      root.rotation.x = cfg.baseRotX; root.rotation.y = cfg.baseRotY;
+      root.position.x += cfg.modelX; root.position.y += cfg.modelY; root.position.z += cfg.modelZ;
       return root;
     }
 
-    async function loadObjText(url) {
-      const response = await fetch(resolveUrl(url), { mode: 'cors' });
-      if (!response.ok) {
-        throw new Error(`Не удалось загрузить OBJ: ${response.status} ${response.statusText}`);
-      }
-      return await response.text();
-    }
-
+    /* ── main ────────────────────────────────────────────────────────────── */
     async function main() {
-      if (!displayCtx) throw new Error('2D canvas не создался.');
-
       setStatus('Загружаю OBJ…');
-      const objText = await loadObjText(config.obj);
+      const res = await fetch(resolveUrl(cfg.obj), { mode:'cors' });
+      if (!res.ok) throw new Error(`OBJ ${res.status} ${res.statusText}`);
+      const objText = await res.text();
 
       setStatus('Собираю сцену…');
-      const loader = new OBJLoader();
-      const parsed = loader.parse(objText);
-      const meshGroup = await collapseObjectToMesh(parsed);
+      const grp = await buildMeshGroup(new OBJLoader().parse(objText));
+      if (!grp.children.length) throw new Error('Нет mesh в OBJ');
+      const model = normalizeObject(grp);
 
-      if (!meshGroup.children.length) {
-        throw new Error('OBJ загружен, но в нём не найдено mesh-геометрии.');
-      }
-
-      const model = normalizeObject(meshGroup);
-
-      const renderer = new THREE.WebGLRenderer({
-        canvas: webglCanvas,
-        antialias: true,
-        alpha: true,
-        preserveDrawingBuffer: true
-      });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      /* Three.js renderer — let it use its own dpr for quality */
+      const renderer = new THREE.WebGLRenderer({ canvas: webglCanvas, antialias:true, alpha:true, preserveDrawingBuffer:true });
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-      const scene = new THREE.Scene();
+      const scene  = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
       camera.position.set(0, 0, 6);
+      scene.add(new THREE.AmbientLight(0xffffff, cfg.ambientInt));
+      const light = new THREE.DirectionalLight(0xffffff, cfg.lightInt);
+      scene.add(light, light.target, model);
 
-      const ambient = new THREE.AmbientLight(0xffffff, config.ambientIntensity);
-      scene.add(ambient);
+      /* Trail canvas stays in CSS pixels */
+      const trailCv  = document.createElement('canvas');
+      const trailCtx = trailCv.getContext('2d', { willReadFrequently:true });
 
-      const light = new THREE.DirectionalLight(0xffffff, config.lightIntensity);
-      scene.add(light);
-      scene.add(light.target);
-      scene.add(model);
-
-      const trailCanvas = document.createElement('canvas');
-      const trailCtx = trailCanvas.getContext('2d', { willReadFrequently: true });
-      const bufferCanvas = document.createElement('canvas');
-      const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
-
-      if (!trailCtx || !bufferCtx) {
-        throw new Error('Вспомогательные canvas не создались.');
-      }
+      /* WebGL pixel readback buffer — matches PHYSICAL canvas pixels */
+      let glBuf = null; // Uint8Array, allocated in resize()
 
       const mouse = new THREE.Vector2(0.5, 0.5);
-      let width = 1;
-      let height = 1;
-      let raf = 0;
-      let grid = [];
-      let cols = 0;
-      let rows = 0;
+      let cssW = 1, cssH = 1; // CSS / logical dimensions
+      let physW = 1, physH = 1; // physical WebGL canvas dimensions
+      let raf = 0, grid = [], cols = 0, rows = 0;
 
-      const state = {
-        dragging: false,
-        lastPointerX: 0,
-        lastPointerY: 0,
-        lastPointerDX: 0,
-        lastPointerDY: 0,
-        panX: config.modelX,
-        panY: config.modelY,
-        targetPanX: config.modelX,
-        targetPanY: config.modelY,
-        currentRotX: config.baseRotX,
-        currentRotY: config.baseRotY,
-        targetRotX: config.baseRotX,
-        targetRotY: config.baseRotY
+      const st = {
+        dragging:false, lpx:0, lpy:0, ldx:0, ldy:0,
+        panX:cfg.modelX, panY:cfg.modelY, tPanX:cfg.modelX, tPanY:cfg.modelY,
+        rotX:cfg.baseRotX, rotY:cfg.baseRotY, tRotX:cfg.baseRotX, tRotY:cfg.baseRotY,
       };
 
-      function updateLightPosition() {
-        const angle = config.lightRotation;
-        light.position.set(
-          Math.cos(angle) * config.lightDistance,
-          config.lightHeight,
-          Math.sin(angle) * config.lightDistance
-        );
-        light.target.position.set(0, 0, 0);
-        light.target.updateMatrixWorld();
+      function updateLight() {
+        light.position.set(Math.cos(cfg.lightRot)*cfg.lightDist, cfg.lightH, Math.sin(cfg.lightRot)*cfg.lightDist);
+        light.target.position.set(0,0,0); light.target.updateMatrixWorld();
       }
 
       function resize() {
         const rect = mount.getBoundingClientRect();
-        width = Math.max(320, Math.floor(rect.width));
-        height = Math.max(320, Math.floor(rect.height));
+        cssW  = Math.max(320, Math.floor(rect.width));
+        cssH  = Math.max(320, Math.floor(rect.height));
 
-        renderer.setSize(width, height, false);
-        camera.aspect = width / height;
+        renderer.setSize(cssW, cssH); // Three.js scales internally by dpr
+        // After setSize the canvas physical dimensions are:
+        physW = webglCanvas.width;
+        physH = webglCanvas.height;
+
+        // Allocate readback buffer for one full frame of physical pixels (RGBA)
+        glBuf = new Uint8Array(physW * physH * 4);
+
+        camera.aspect = cssW / cssH;
         camera.updateProjectionMatrix();
 
-        webglCanvas.width = width;
-        webglCanvas.height = height;
-        displayCanvas.width = width;
-        displayCanvas.height = height;
-        trailCanvas.width = width;
-        trailCanvas.height = height;
-        bufferCanvas.width = width;
-        bufferCanvas.height = height;
+        displayCanvas.width  = cssW; displayCanvas.height = cssH;
+        trailCv.width        = cssW; trailCv.height       = cssH;
 
         rebuildGrid();
       }
 
       function rebuildGrid() {
-        const cell = Math.max(4, config.cell);
-        cols = Math.ceil(width / cell);
-        rows = Math.ceil(height / cell);
-        grid = new Array(cols * rows);
-
-        for (let gy = 0; gy < rows; gy++) {
-          for (let gx = 0; gx < cols; gx++) {
-            const baseX = gx * cell;
-            const baseY = gy * cell;
-            grid[gy * cols + gx] = {
-              baseX,
-              baseY,
-              x: baseX,
-              y: baseY,
-              vx: 0,
-              vy: 0,
-              glow: 0,
-              active: false,
-              brightness: 0
-            };
-          }
-        }
+        const cell = Math.max(4, cfg.cell);
+        cols = Math.ceil(cssW / cell); rows = Math.ceil(cssH / cell);
+        grid = Array.from({ length: cols * rows }, (_, i) => {
+          const gx = i % cols, gy = Math.floor(i / cols);
+          const bx = gx * cell, by = gy * cell;
+          return { baseX:bx, baseY:by, x:bx, y:by, vx:0, vy:0, glow:0, active:false };
+        });
       }
 
       function paintTrail() {
-        trailCtx.clearRect(0, 0, width, height);
-        if (!config.cursorGlow || config.trail <= 0) return;
-
-        const x = mouse.x * width;
-        const y = mouse.y * height;
-        const grad = trailCtx.createRadialGradient(
-          x, y, 0,
-          x, y, Math.max(40, width * 0.12 * config.trail + 20)
-        );
-        grad.addColorStop(0, `rgba(255,255,255,${0.28 + config.trail * 0.45})`);
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-
-        trailCtx.fillStyle = grad;
-        trailCtx.beginPath();
-        trailCtx.arc(x, y, Math.max(30, width * 0.08 * config.trail + 18), 0, Math.PI * 2);
-        trailCtx.fill();
+        trailCtx.clearRect(0, 0, cssW, cssH);
+        if (!cfg.cursorGlow || cfg.trail <= 0) return;
+        const x = mouse.x*cssW, y = mouse.y*cssH;
+        const r = Math.max(40, cssW*0.12*cfg.trail+20);
+        const g = trailCtx.createRadialGradient(x,y,0,x,y,r);
+        g.addColorStop(0, `rgba(255,255,255,${0.28+cfg.trail*0.45})`);
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        trailCtx.fillStyle = g;
+        trailCtx.beginPath(); trailCtx.arc(x, y, Math.max(30, cssW*0.08*cfg.trail+18), 0, Math.PI*2); trailCtx.fill();
       }
 
-      function updateModelMask() {
-        bufferCtx.clearRect(0, 0, width, height);
-        bufferCtx.drawImage(webglCanvas, 0, 0, width, height);
-        const baseData = bufferCtx.getImageData(0, 0, width, height).data;
+      /* Read WebGL pixels directly — no drawImage, no dpr confusion.
+         readPixels reads from the physical framebuffer (physW × physH).
+         We then map each glyph cell (CSS coords) → physical pixel via dpr scale. */
+      function readGLPixels(gl) {
+        gl.readPixels(0, 0, physW, physH, gl.RGBA, gl.UNSIGNED_BYTE, glBuf);
+      }
 
-        const cell = Math.max(4, config.cell);
+      /* Convert CSS pixel (cx, cy) to index in glBuf.
+         WebGL Y axis is flipped: row 0 is at the bottom. */
+      function glIdx(cx, cy) {
+        const px = Math.min(physW-1, Math.max(0, Math.round(cx * physW / cssW)));
+        // flip Y: CSS y=0 is top, WebGL y=0 is bottom
+        const py = Math.min(physH-1, Math.max(0, Math.round((1 - cy / cssH) * physH - 1)));
+        return (py * physW + px) * 4;
+      }
 
-        for (let gy = 0; gy < rows; gy++) {
-          for (let gx = 0; gx < cols; gx++) {
-            const node = grid[gy * cols + gx];
-            const px = Math.min(width - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
-            const py = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
-            const idx = (py * width + px) * 4;
-
-            const r = baseData[idx];
-            const g = baseData[idx + 1];
-            const b = baseData[idx + 2];
-            const a = baseData[idx + 3] / 255;
-
-            const rawBrightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
-            node.brightness = rawBrightness;
-            node.active = rawBrightness > 0.03;
-          }
+      function updateModelMask(gl) {
+        readGLPixels(gl);
+        const cell = Math.max(4, cfg.cell);
+        for (let i = 0; i < grid.length; i++) {
+          const nd = grid[i];
+          const cx = Math.min(cssW-1, Math.max(0, Math.floor(nd.baseX + cell*0.5)));
+          const cy = Math.min(cssH-1, Math.max(0, Math.floor(nd.baseY + cell*0.5)));
+          const idx = glIdx(cx, cy);
+          const r = glBuf[idx], g = glBuf[idx+1], b = glBuf[idx+2], a = glBuf[idx+3]/255;
+          const bri = ((0.2126*r + 0.7152*g + 0.0722*b)/255) * a;
+          nd.active = bri > 0.03;
         }
-
-        return baseData;
       }
 
       function updateGridPhysics() {
-        if (!config.mouseTrail) {
-          for (let i = 0; i < grid.length; i++) {
-            const node = grid[i];
-            node.vx += (node.baseX - node.x) * config.returnStrength;
-            node.vy += (node.baseY - node.y) * config.returnStrength;
-            node.vx *= 0.88;
-            node.vy *= 0.88;
-            node.x += node.vx;
-            node.y += node.vy;
-            node.glow *= 0.92;
-          }
-          return;
-        }
-
-        const mouseX = mouse.x * width;
-        const mouseY = mouse.y * height;
-        const radius = config.radius;
-        const radiusSq = radius * radius;
-        const pointerVX = state.lastPointerDX || 0;
-        const pointerVY = state.lastPointerDY || 0;
-
+        const mouseX = mouse.x*cssW, mouseY = mouse.y*cssH;
+        const r2 = cfg.radius*cfg.radius;
         for (let i = 0; i < grid.length; i++) {
-          const node = grid[i];
-
-          if (!node.active) {
-            node.vx += (node.baseX - node.x) * config.returnStrength;
-            node.vy += (node.baseY - node.y) * config.returnStrength;
-            node.vx *= 0.88;
-            node.vy *= 0.88;
-            node.x += node.vx;
-            node.y += node.vy;
-            node.glow *= 0.9;
+          const nd = grid[i];
+          if (!nd.active || !cfg.mouseTrail) {
+            nd.vx += (nd.baseX-nd.x)*cfg.returnStr; nd.vy += (nd.baseY-nd.y)*cfg.returnStr;
+            nd.vx *= 0.88; nd.vy *= 0.88; nd.x += nd.vx; nd.y += nd.vy;
+            nd.glow *= (nd.active ? 0.92 : 0.9);
             continue;
           }
-
-          const dx = node.baseX - mouseX;
-          const dy = node.baseY - mouseY;
-          const distSq = dx * dx + dy * dy;
-
-          if (distSq < radiusSq) {
-            const dist = Math.sqrt(distSq) || 0.0001;
-            const falloff = 1 - dist / radius;
-
-            const nx = dx / dist;
-            const ny = dy / dist;
-
-            const repel = falloff * config.force * 0.55;
-            node.vx += nx * repel;
-            node.vy += ny * repel;
-
-            const dragInfluence = falloff * 0.42;
-            node.vx += pointerVX * dragInfluence;
-            node.vy += pointerVY * dragInfluence;
-
-            const tx = -ny;
-            const ty = nx;
-            node.vx += tx * falloff * config.swirl * 0.08;
-            node.vy += ty * falloff * config.swirl * 0.08;
-
-            node.glow = Math.min(1, node.glow + falloff * 0.08);
+          const dx = nd.baseX-mouseX, dy = nd.baseY-mouseY;
+          const dSq = dx*dx + dy*dy;
+          if (dSq < r2) {
+            const d = Math.sqrt(dSq)||0.0001, fo = 1-d/cfg.radius;
+            const nx = dx/d, ny = dy/d;
+            nd.vx += nx*fo*cfg.force*0.55 + st.ldx*fo*0.42 + (-ny)*fo*cfg.swirl*0.08;
+            nd.vy += ny*fo*cfg.force*0.55 + st.ldy*fo*0.42 + nx*fo*cfg.swirl*0.08;
+            nd.glow = Math.min(1, nd.glow+fo*0.08);
           }
-
-          node.vx += (node.baseX - node.x) * config.returnStrength;
-          node.vy += (node.baseY - node.y) * config.returnStrength;
-
-          node.vx *= 0.88;
-          node.vy *= 0.88;
-
-          node.x += node.vx;
-          node.y += node.vy;
-          node.glow *= 0.92;
+          nd.vx += (nd.baseX-nd.x)*cfg.returnStr; nd.vy += (nd.baseY-nd.y)*cfg.returnStr;
+          nd.vx *= 0.88; nd.vy *= 0.88; nd.x += nd.vx; nd.y += nd.vy; nd.glow *= 0.92;
         }
       }
 
       function drawAscii() {
-        const baseData = updateModelMask();
-        const trailData = trailCtx.getImageData(0, 0, width, height).data;
+        const trailData = cfg.cursorGlow ? trailCtx.getImageData(0,0,cssW,cssH).data : null;
+        displayCtx.clearRect(0, 0, cssW, cssH);
+        if (!cfg.transparent) { displayCtx.fillStyle = cfg.bg; displayCtx.fillRect(0,0,cssW,cssH); }
 
-        displayCtx.clearRect(0, 0, width, height);
-        if (!config.transparent) {
-          displayCtx.fillStyle = config.bg;
-          displayCtx.fillRect(0, 0, width, height);
-        }
-
-        const cell = Math.max(4, config.cell);
-        const chars = config.charset || ' .:-=+*#%@';
-        displayCtx.font = `${Math.floor(cell * 1.02)}px monospace`;
+        const cell  = Math.max(4, cfg.cell);
+        const chars = cfg.charset || ' .:-=+*#%@';
+        displayCtx.font = `${Math.floor(cell*1.02)}px monospace`;
         displayCtx.textBaseline = 'top';
+        const fb = hexToRgb(cfg.color);
 
-        const fallbackRgb = hexToRgb(config.color);
+        for (let i = 0; i < grid.length; i++) {
+          const nd = grid[i];
+          if (!nd.active) continue;
 
-        for (let gy = 0; gy < rows; gy++) {
-          for (let gx = 0; gx < cols; gx++) {
-            const node = grid[gy * cols + gx];
-            if (!node.active) continue;
+          const cx = Math.min(cssW-1, Math.max(0, Math.floor(nd.baseX+cell*0.5)));
+          const cy = Math.min(cssH-1, Math.max(0, Math.floor(nd.baseY+cell*0.5)));
+          const idx = glIdx(cx, cy);
 
-            const px = Math.min(width - 1, Math.max(0, Math.floor(node.baseX + cell * 0.5)));
-            const py = Math.min(height - 1, Math.max(0, Math.floor(node.baseY + cell * 0.5)));
-            const idx = (py * width + px) * 4;
+          const r = glBuf[idx], g = glBuf[idx+1], b = glBuf[idx+2], a = glBuf[idx+3]/255;
+          const tr = trailData ? trailData[(cy*cssW+cx)*4]/255 : 0;
 
-            const r = baseData[idx];
-            const g = baseData[idx + 1];
-            const b = baseData[idx + 2];
-            const a = baseData[idx + 3] / 255;
-            const tr = config.cursorGlow ? trailData[idx] / 255 : 0;
+          let bri = Math.pow(Math.max(0, ((0.2126*r+0.7152*g+0.0722*b)/255)*a), cfg.shadowPow);
+          if (bri < cfg.blackThr) bri = 0;
+          bri = Math.min(1, Math.max(0, bri + tr*cfg.trail*0.35 + nd.glow*0.18));
 
-            let brightness = ((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255) * a;
-            brightness = Math.pow(Math.max(0, brightness), config.shadowPower);
+          const ch = chars[Math.min(chars.length-1, Math.floor(bri*(chars.length-1)))];
+          if (ch === ' ' || bri <= 0.01) continue;
 
-            if (brightness < config.blackThreshold) {
-              brightness = 0;
-            }
-
-            brightness = Math.min(
-              1,
-              Math.max(0, brightness + tr * config.trail * 0.35 + node.glow * 0.18)
-            );
-
-            const charIndex = Math.min(chars.length - 1, Math.floor(brightness * (chars.length - 1)));
-            const char = chars[charIndex];
-            if (char === ' ' || brightness <= 0.01) continue;
-
-            const alpha = Math.min(1, 0.18 + brightness * 0.95 + node.glow * 0.35);
-
-            if (config.colorizeGlyphs) {
-              const sat = applySaturation(r, g, b, config.saturation);
-              const mixedR = fallbackRgb.r + (sat.r - fallbackRgb.r) * config.colorStrength;
-              const mixedG = fallbackRgb.g + (sat.g - fallbackRgb.g) * config.colorStrength;
-              const mixedB = fallbackRgb.b + (sat.b - fallbackRgb.b) * config.colorStrength;
-              displayCtx.fillStyle = rgbaString(mixedR, mixedG, mixedB, alpha);
-            } else {
-              displayCtx.fillStyle = colorWithAlpha(config.color, alpha);
-            }
-
-            displayCtx.fillText(char, node.x, node.y);
+          const alpha = Math.min(1, 0.18 + bri*0.95 + nd.glow*0.35);
+          if (cfg.colorize) {
+            const s = satApply(r,g,b,cfg.saturation);
+            displayCtx.fillStyle = rgbaStr(fb.r+(s.r-fb.r)*cfg.colorStr, fb.g+(s.g-fb.g)*cfg.colorStr, fb.b+(s.b-fb.b)*cfg.colorStr, alpha);
+          } else {
+            displayCtx.fillStyle = colorAlpha(cfg.color, alpha);
           }
+          displayCtx.fillText(ch, nd.x, nd.y);
         }
       }
 
-      function updateInteractionTargets() {
-        if (!config.mouseRotate || state.dragging) {
-          state.targetRotX = config.baseRotX;
-          state.targetRotY = config.baseRotY;
-          return;
-        }
-
-        state.targetRotY = config.baseRotY + (mouse.x - 0.5) * config.rotateInfluenceX;
-        state.targetRotX = config.baseRotX + (mouse.y - 0.5) * config.rotateInfluenceY;
-      }
-
-      function onPointerMove(event) {
+      function onPointerMove(e) {
         const rect = displayCanvas.getBoundingClientRect();
-        const x = (event.clientX - rect.left) / rect.width;
-        const y = (event.clientY - rect.top) / rect.height;
-
-        mouse.set(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)));
-
-        const dx = event.clientX - state.lastPointerX;
-        const dy = event.clientY - state.lastPointerY;
-
-        state.lastPointerDX = dx * 0.12;
-        state.lastPointerDY = dy * 0.12;
-
-        if (state.dragging && config.dragPan) {
-          state.targetPanX += (dx / Math.max(320, width)) * 4 * config.panStrength;
-          state.targetPanY -= (dy / Math.max(320, height)) * 4 * config.panStrength;
+        mouse.set(
+          Math.min(1,Math.max(0,(e.clientX-rect.left)/rect.width)),
+          Math.min(1,Math.max(0,(e.clientY-rect.top)/rect.height))
+        );
+        const dx = e.clientX-st.lpx, dy = e.clientY-st.lpy;
+        st.ldx = dx*0.12; st.ldy = dy*0.12;
+        if (st.dragging && cfg.dragPan) {
+          st.tPanX += (dx/Math.max(320,cssW))*4*cfg.panStrength;
+          st.tPanY -= (dy/Math.max(320,cssH))*4*cfg.panStrength;
         }
-
-        state.lastPointerX = event.clientX;
-        state.lastPointerY = event.clientY;
+        st.lpx = e.clientX; st.lpy = e.clientY;
       }
+      function onPointerDown(e) { if(!cfg.dragPan)return; st.dragging=true; st.lpx=e.clientX; st.lpy=e.clientY; mount.classList.add('dragging'); displayCanvas.setPointerCapture?.(e.pointerId); }
+      function onPointerUp(e)   { st.dragging=false; mount.classList.remove('dragging'); displayCanvas.releasePointerCapture?.(e.pointerId); }
+      function onLeave()        { mouse.set(0.5,0.5); st.dragging=false; st.ldx=0; st.ldy=0; mount.classList.remove('dragging'); }
 
-      function onPointerDown(event) {
-        if (!config.dragPan) return;
-        state.dragging = true;
-        state.lastPointerX = event.clientX;
-        state.lastPointerY = event.clientY;
-        mount.classList.add('dragging');
-        displayCanvas.setPointerCapture?.(event.pointerId);
-      }
-
-      function onPointerUp(event) {
-        state.dragging = false;
-        mount.classList.remove('dragging');
-        displayCanvas.releasePointerCapture?.(event.pointerId);
-      }
-
-      function onLeave() {
-        mouse.set(0.5, 0.5);
-        state.dragging = false;
-        state.lastPointerDX = 0;
-        state.lastPointerDY = 0;
-        mount.classList.remove('dragging');
-      }
+      const gl = webglCanvas.getContext('webgl2') || webglCanvas.getContext('webgl');
 
       function tick() {
-        updateInteractionTargets();
+        // rotation
+        if (!cfg.mouseRotate || st.dragging) { st.tRotX=cfg.baseRotX; st.tRotY=cfg.baseRotY; }
+        else { st.tRotY=cfg.baseRotY+(mouse.x-0.5)*cfg.rotInflX; st.tRotX=cfg.baseRotX+(mouse.y-0.5)*cfg.rotInflY; }
+        if (cfg.autoRotate && !st.dragging) st.tRotY += cfg.rotateSpeed;
 
-        if (config.autoRotate && !state.dragging) {
-          state.targetRotY += config.rotateSpeed;
-        }
+        st.rotX += (st.tRotX-st.rotX)*0.08; st.rotY += (st.tRotY-st.rotY)*0.08;
+        st.panX += (st.tPanX-st.panX)*0.14; st.panY += (st.tPanY-st.panY)*0.14;
 
-        state.currentRotX += (state.targetRotX - state.currentRotX) * 0.08;
-        state.currentRotY += (state.targetRotY - state.currentRotY) * 0.08;
-        state.panX += (state.targetPanX - state.panX) * 0.14;
-        state.panY += (state.targetPanY - state.panY) * 0.14;
+        model.rotation.x = st.rotX; model.rotation.y = st.rotY;
+        model.position.x = st.panX; model.position.y = st.panY; model.position.z = cfg.modelZ;
 
-        model.rotation.x = state.currentRotX;
-        model.rotation.y = state.currentRotY;
-        model.position.x = state.panX;
-        model.position.y = state.panY;
-        model.position.z = config.modelZ;
-
-        updateLightPosition();
-        renderer.setClearColor(0x000000, config.transparent ? 0 : 1);
+        updateLight();
+        renderer.setClearColor(0x000000, cfg.transparent ? 0 : 1);
         renderer.render(scene, camera);
+
+        // Read pixels AFTER render, from the live WebGL context
+        // (no intermediate canvas needed — correct for any dpr)
+        updateModelMask(gl);
 
         paintTrail();
         updateGridPhysics();
@@ -798,28 +462,21 @@
       }
 
       resize();
-      updateLightPosition();
+      updateLight();
 
-      displayCanvas.addEventListener('pointermove', onPointerMove);
-      displayCanvas.addEventListener('pointerdown', onPointerDown);
-      displayCanvas.addEventListener('pointerup', onPointerUp);
-      displayCanvas.addEventListener('pointercancel', onPointerUp);
+      displayCanvas.addEventListener('pointermove',  onPointerMove);
+      displayCanvas.addEventListener('pointerdown',  onPointerDown);
+      displayCanvas.addEventListener('pointerup',    onPointerUp);
+      displayCanvas.addEventListener('pointercancel',onPointerUp);
       displayCanvas.addEventListener('pointerleave', onLeave);
       window.addEventListener('resize', resize);
 
       tick();
       setStatus('Готово');
-
-      window.addEventListener('beforeunload', () => {
-        cancelAnimationFrame(raf);
-        renderer.dispose();
-      });
+      window.addEventListener('beforeunload', () => { cancelAnimationFrame(raf); renderer.dispose(); });
     }
 
-    main().catch((error) => {
-      console.error(error);
-      showError(error instanceof Error ? error.message : String(error));
-    });
+    main().catch(e => { console.error(e); showError(e instanceof Error ? e.message : String(e)); });
   </script>
 </body>
 </html>
