@@ -642,16 +642,52 @@
     }
 
     function buildEmbedCode(viewerUrl) {
-      return `<div style="width:100%; height:100vh; min-height:620px; overflow:hidden;">
+      return `<div id="ascii-viewer-wrap" style="width:100%; height:100vh; min-height:620px; overflow:hidden; position:relative;">
   <iframe
+    id="ascii-viewer-frame"
     src="${viewerUrl}"
     width="100%"
     height="100%"
-    style="border:0; display:block;"
+    style="border:0; display:block; pointer-events:none;"
     loading="lazy"
     allowfullscreen
   ></iframe>
-</div>`;
+</div>
+<script>
+  (function () {
+    var wrap = document.getElementById('ascii-viewer-wrap');
+    var frame = document.getElementById('ascii-viewer-frame');
+    if (!wrap || !frame) return;
+
+    function sendPointer(clientX, clientY, inside) {
+      if (!frame.contentWindow) return;
+      frame.contentWindow.postMessage({
+        type: 'ascii-viewer-pointer',
+        clientX: clientX,
+        clientY: clientY,
+        inside: inside
+      }, '*');
+    }
+
+    function handlePointerMove(event) {
+      var rect = wrap.getBoundingClientRect();
+      var inside =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+
+      sendPointer(event.clientX, event.clientY, inside);
+    }
+
+    function handlePointerLeave() {
+      sendPointer(0, 0, false);
+    }
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerleave', handlePointerLeave);
+  })();
+</script>`;
     }
 
     function refresh() {
