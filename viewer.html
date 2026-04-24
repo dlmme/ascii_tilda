@@ -777,22 +777,22 @@
         state.targetRotX = config.baseRotX + (mouse.y - 0.5) * config.rotateInfluenceY;
       }
 
-      function onPointerMove(event) {
+      function setPointerFromClient(clientX, clientY) {
         const rect = mount.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
-        const x = (event.clientX - rect.left) / rect.width;
-        const y = (event.clientY - rect.top) / rect.height;
+        const x = (clientX - rect.left) / rect.width;
+        const y = (clientY - rect.top) / rect.height;
 
         if (x < 0 || x > 1 || y < 0 || y > 1) {
-          onLeave(event);
+          onLeave();
           return;
         }
 
         mouse.set(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)));
         state.pointerInside = true;
 
-        const dx = event.clientX - state.lastPointerX;
-        const dy = event.clientY - state.lastPointerY;
+        const dx = clientX - state.lastPointerX;
+        const dy = clientY - state.lastPointerY;
 
         state.lastPointerDX = dx * 0.12;
         state.lastPointerDY = dy * 0.12;
@@ -802,8 +802,28 @@
           state.targetPanY -= (dy / Math.max(320, height)) * 4 * config.panStrength;
         }
 
-        state.lastPointerX = event.clientX;
-        state.lastPointerY = event.clientY;
+        state.lastPointerX = clientX;
+        state.lastPointerY = clientY;
+      }
+
+      function onPointerMove(event) {
+        setPointerFromClient(event.clientX, event.clientY);
+      }
+
+      function onExternalPointerMessage(event) {
+        const data = event.data;
+        if (!data || data.type !== 'ascii-viewer-pointer') return;
+
+        if (!data.inside) {
+          onLeave();
+          return;
+        }
+
+        if (!Number.isFinite(data.clientX) || !Number.isFinite(data.clientY)) {
+          return;
+        }
+
+        setPointerFromClient(data.clientX, data.clientY);
       }
 
       function onLeave() {
@@ -853,6 +873,7 @@
 
       window.addEventListener('pointermove', onPointerMove, { passive: true });
       window.addEventListener('pointerleave', onLeave);
+      window.addEventListener('message', onExternalPointerMessage);
 
       window.addEventListener('resize', scheduleResize, { passive: true });
       window.visualViewport?.addEventListener('resize', scheduleResize, { passive: true });
@@ -867,6 +888,7 @@
       window.addEventListener('beforeunload', () => {
         cancelAnimationFrame(raf);
         ro.disconnect();
+        window.removeEventListener('message', onExternalPointerMessage);
         renderer.dispose();
       });
     }
